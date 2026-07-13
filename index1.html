@@ -1,1 +1,822 @@
 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tam-Tam Silence — Moniteur de bruit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --calme:#008751;
+    --attention:#FFD100;
+    --bruit:#D21034;
+    --wood:#241a12;
+    --wood-light:#3b2a1a;
+    --cream:#F4EFE6;
+    --cream-dim:#cfc6b4;
+    --state-color: var(--calme);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--wood);
+    color:var(--cream);
+    font-family:'Fredoka',sans-serif;
+    overflow:hidden;
+    touch-action:manipulation;
+  }
+  body{
+    display:flex; flex-direction:column;
+    height:100vh; height:100dvh;
+    transition:background 0.6s ease;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.05), transparent 60%),
+      var(--wood);
+  }
+
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px 6px;
+    flex-shrink:0;
+  }
+  .brand{
+    display:flex; align-items:center; gap:8px;
+    font-size:15px; font-weight:600; letter-spacing:0.5px;
+    color:var(--cream-dim);
+  }
+  .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--state-color); transition:background 0.4s;}
+  .icon-btn{
+    background:var(--wood-light); border:1px solid rgba(244,239,230,0.15);
+    color:var(--cream); width:38px; height:38px; border-radius:12px;
+    font-size:18px; display:flex; align-items:center; justify-content:center;
+  }
+
+  main{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:4px 16px; min-height:0;
+  }
+
+  /* --- Drum gauge --- */
+  .drum-wrap{
+    position:relative;
+    width:min(64vw, 300px); height:min(64vw, 300px);
+    flex-shrink:1;
+  }
+  svg.drum{width:100%; height:100%; display:block;}
+  .drum-face{
+    transition: fill 0.5s ease;
+  }
+  .lacing line{
+    stroke:#a9895f; stroke-width:2; opacity:0.55;
+  }
+  .arc-bg{ fill:none; stroke:rgba(255,255,255,0.08); stroke-width:14; }
+  .arc-fill{
+    fill:none; stroke-width:14; stroke-linecap:round;
+    transition: stroke-dashoffset 0.15s linear, stroke 0.4s ease;
+  }
+  .drum-center{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    transition:transform 0.15s ease;
+  }
+  .status-word{
+    font-size:clamp(20px,5.5vw,30px); font-weight:700; letter-spacing:0.5px;
+    color:var(--state-color); transition:color 0.4s ease;
+    text-shadow:0 2px 10px rgba(0,0,0,0.4);
+  }
+  .status-sub{
+    font-size:13px; color:var(--cream-dim); margin-top:2px; font-weight:500;
+  }
+  .level-number{
+    font-family:'Space Grotesk',monospace; font-size:clamp(38px,10vw,58px); font-weight:700;
+    line-height:1; margin-top:6px;
+  }
+
+  /* --- Stats row --- */
+  .stats{
+    display:flex; gap:10px; width:100%; max-width:420px; margin-top:18px;
+  }
+  .stat-card{
+    flex:1; background:rgba(244,239,230,0.06); border:1px solid rgba(244,239,230,0.12);
+    border-radius:14px; padding:10px 8px; text-align:center;
+  }
+  .stat-label{font-size:11px; color:var(--cream-dim); text-transform:uppercase; letter-spacing:0.6px;}
+  .stat-value{font-family:'Space Grotesk',monospace; font-size:20px; font-weight:700; margin-top:2px;}
+  .stat-value.timer{color:var(--calme);}
+  .stat-value.points{color:#FFD100;}
+
+  /* --- History strip --- */
+  .history{
+    width:100%; max-width:420px; height:34px; margin-top:14px;
+    display:flex; align-items:flex-end; gap:2px;
+    background:rgba(0,0,0,0.2); border-radius:8px; padding:3px;
+  }
+  .history .bar{
+    flex:1; min-width:2px; border-radius:2px 2px 0 0;
+    background:var(--calme); transition:height 0.15s linear, background 0.15s linear;
+  }
+
+  footer{
+    flex-shrink:0; padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+    display:flex; gap:10px; max-width:420px; margin:0 auto; width:100%;
+  }
+  button.main-btn{
+    flex:1; border:none; border-radius:16px; padding:15px 10px;
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:16px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-start{background:var(--calme); color:white;}
+  .btn-stop{background:var(--bruit); color:white;}
+  .btn-secondary{
+    background:var(--wood-light); color:var(--cream);
+    border:1px solid rgba(244,239,230,0.15) !important;
+    flex:0 0 auto; width:52px;
+  }
+
+  /* --- Settings panel --- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.55);
+    display:none; align-items:flex-end; justify-content:center; z-index:20;
+  }
+  .overlay.open{display:flex;}
+  .panel{
+    background:var(--wood-light); width:100%; max-width:460px;
+    border-radius:22px 22px 0 0; padding:20px 20px calc(20px + env(safe-area-inset-bottom));
+    max-height:82vh; overflow-y:auto;
+  }
+  .panel h2{margin:0 0 14px; font-size:19px;}
+  .panel label{display:block; font-size:13px; color:var(--cream-dim); margin:14px 0 6px;}
+  .panel input[type=range]{width:100%; accent-color:var(--calme);}
+  .panel .row{display:flex; justify-content:space-between; font-size:13px; color:var(--cream-dim);}
+  .panel .close-btn{
+    margin-top:18px; width:100%; padding:13px; border:none; border-radius:14px;
+    background:var(--calme); color:white; font-family:'Fredoka'; font-weight:600; font-size:15px;
+  }
+  .panel .reset-btn{
+    margin-top:10px; width:100%; padding:13px; border:1px solid rgba(244,239,230,0.2);
+    border-radius:14px; background:transparent; color:var(--cream-dim); font-family:'Fredoka'; font-size:14px;
+  }
+  .mic-msg{
+    position:fixed; inset:0; background:var(--wood); z-index:30;
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    padding:30px; text-align:center;
+  }
+  .mic-msg.open{display:flex;}
+  .mic-msg .emoji{font-size:52px; margin-bottom:14px;}
+  .mic-msg h3{margin:0 0 10px; font-size:19px;}
+  .mic-msg p{color:var(--cream-dim); font-size:14px; line-height:1.5; max-width:320px;}
+  .mic-msg button{
+    margin-top:20px; padding:13px 28px; border:none; border-radius:14px;
+    background:var(--calme); color:white; font-family:'Fredoka'; font-weight:600; font-size:15px;
+  }
+
+  /* --- Class badge --- */
+  .class-badge{
+    background:var(--wood-light); border:1px solid rgba(244,239,230,0.15);
+    color:var(--cream); padding:8px 12px; border-radius:12px;
+    font-family:'Fredoka'; font-size:13px; font-weight:600;
+    display:flex; align-items:center; gap:6px; max-width:150px;
+  }
+  .class-badge span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  /* --- Class list / ranking --- */
+  .class-list{list-style:none; margin:0; padding:0;}
+  .class-list li{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:11px 12px; border-radius:12px; margin-bottom:8px;
+    background:rgba(244,239,230,0.06); border:1px solid rgba(244,239,230,0.1);
+  }
+  .class-list li.active{border-color:var(--calme); background:rgba(0,135,81,0.15);}
+  .class-list .cl-name{font-weight:600; font-size:14px;}
+  .class-list .cl-stats{font-size:11px; color:var(--cream-dim); margin-top:2px;}
+  .class-list .cl-select{
+    background:var(--calme); color:white; border:none; border-radius:10px;
+    padding:7px 12px; font-family:'Fredoka'; font-weight:600; font-size:12px;
+  }
+  .class-list li.active .cl-select{background:transparent; color:var(--calme); border:1px solid var(--calme);}
+  .new-class-row{display:flex; gap:8px; margin-top:12px;}
+  .new-class-row input{
+    flex:1; background:rgba(0,0,0,0.25); border:1px solid rgba(244,239,230,0.2);
+    border-radius:10px; padding:11px 12px; color:var(--cream); font-family:'Fredoka'; font-size:14px;
+  }
+  .new-class-row button{
+    background:var(--attention); color:#241a12; border:none; border-radius:10px;
+    padding:0 16px; font-family:'Fredoka'; font-weight:700; font-size:14px;
+  }
+
+  /* --- Challenge duration picker --- */
+  .duration-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:8px;}
+  .duration-grid button{
+    padding:14px 6px; border-radius:14px; border:1px solid rgba(244,239,230,0.18);
+    background:rgba(244,239,230,0.06); color:var(--cream); font-family:'Space Grotesk'; font-weight:700; font-size:15px;
+  }
+  .duration-grid button.selected{background:var(--attention); color:#241a12; border-color:var(--attention);}
+  .launch-challenge-btn{
+    margin-top:18px; width:100%; padding:14px; border:none; border-radius:14px;
+    background:var(--bruit); color:white; font-family:'Fredoka'; font-weight:700; font-size:16px;
+  }
+
+  /* --- Challenge run screen --- */
+  .challenge-screen{
+    position:fixed; inset:0; z-index:40; display:none; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:30px;
+    background:var(--wood); transition:background 0.5s ease;
+  }
+  .challenge-screen.open{display:flex;}
+  .challenge-screen .label{font-size:14px; color:var(--cream-dim); letter-spacing:1px; text-transform:uppercase;}
+  .challenge-screen .countdown{
+    font-family:'Space Grotesk',monospace; font-weight:700; font-size:clamp(56px,20vw,110px);
+    line-height:1; margin:14px 0; color:var(--calme); transition:color 0.4s ease;
+  }
+  .challenge-screen .msg{font-size:16px; color:var(--cream); min-height:24px; font-weight:600;}
+  .challenge-screen .abandon-btn{
+    margin-top:34px; background:transparent; border:1px solid rgba(244,239,230,0.25);
+    color:var(--cream-dim); padding:11px 22px; border-radius:12px; font-family:'Fredoka'; font-size:14px;
+  }
+  .challenge-success{
+    position:fixed; inset:0; z-index:41; display:none; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:30px;
+    background:rgba(0,135,81,0.97);
+  }
+  .challenge-success.open{display:flex;}
+  .challenge-success .emoji{font-size:64px; margin-bottom:10px;}
+  .challenge-success h2{margin:0 0 6px; font-size:24px;}
+  .challenge-success p{color:rgba(255,255,255,0.85); font-size:14px;}
+  .challenge-success button{
+    margin-top:24px; background:white; color:var(--calme); border:none; border-radius:14px;
+    padding:13px 28px; font-family:'Fredoka'; font-weight:700; font-size:15px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <button class="class-badge" id="classBadge">🏫 <span id="classBadgeName">Classe 1</span></button>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <span class="dot" id="brandDot" style="width:8px;height:8px;border-radius:50%;background:var(--calme);"></span>
+    <button class="icon-btn" id="settingsBtn">⚙️</button>
+  </div>
+</header>
+
+<main>
+  <div class="drum-wrap">
+    <svg class="drum" viewBox="0 0 200 200">
+      <g class="lacing" id="lacing"></g>
+      <circle class="drum-face" id="drumFace" cx="100" cy="100" r="70" fill="#3b2a1a" stroke="rgba(0,0,0,0.3)" stroke-width="2"/>
+      <circle class="arc-bg" cx="100" cy="100" r="86"/>
+      <circle class="arc-fill" id="arcFill" cx="100" cy="100" r="86"
+        transform="rotate(-90 100 100)"/>
+    </svg>
+    <div class="drum-center">
+      <div class="status-word" id="statusWord">PRÊT</div>
+      <div class="status-sub" id="statusSub">Appuie sur Démarrer</div>
+      <div class="level-number" id="levelNumber">--</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Silence</div>
+      <div class="stat-value timer" id="timerValue">00:00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Record</div>
+      <div class="stat-value" id="recordValue">00:00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Points</div>
+      <div class="stat-value points" id="pointsValue">0 ⭐</div>
+    </div>
+  </div>
+
+  <div class="history" id="history"></div>
+</main>
+
+<footer>
+  <button class="main-btn btn-start" id="toggleBtn">▶️ Démarrer</button>
+  <button class="main-btn btn-secondary" id="calibrateBtn">🎯</button>
+  <button class="main-btn btn-secondary" id="challengeBtn">🏆</button>
+</footer>
+
+<!-- Settings panel -->
+<div class="overlay" id="overlay">
+  <div class="panel">
+    <h2>Réglages</h2>
+
+    <label>Sensibilité du micro <span id="sensLabel"></span></label>
+    <input type="range" id="sensSlider" min="0.5" max="3" step="0.1" value="1">
+
+    <label>Seuil « Attention » (jaune) <span id="thAttLabel"></span></label>
+    <input type="range" id="thAttSlider" min="10" max="90" step="1" value="35">
+
+    <label>Seuil « Trop bruyant » (rouge) <span id="thBruitLabel"></span></label>
+    <input type="range" id="thBruitSlider" min="20" max="100" step="1" value="65">
+
+    <label>Secondes de calme pour gagner 1 point</label>
+    <input type="range" id="pointsIntervalSlider" min="5" max="60" step="5" value="20">
+    <div class="row"><span>5s</span><span id="pointsIntervalLabel">20s</span><span>60s</span></div>
+
+    <button class="reset-btn" id="resetBtn">Réinitialiser points et record</button>
+    <button class="close-btn" id="closePanelBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Class management panel -->
+<div class="overlay" id="classOverlay">
+  <div class="panel">
+    <h2>Mes classes</h2>
+    <p style="color:var(--cream-dim); font-size:13px; margin-top:-8px;">Chaque classe garde ses propres points, son record et ses défis.</p>
+    <ul class="class-list" id="classList"></ul>
+    <div class="new-class-row">
+      <input type="text" id="newClassInput" placeholder="Ex: 3e A, 4e B...">
+      <button id="addClassBtn">Ajouter</button>
+    </div>
+    <button class="close-btn" id="closeClassBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Challenge setup panel -->
+<div class="overlay" id="challengeOverlay">
+  <div class="panel">
+    <h2>🏆 Défi Silence</h2>
+    <p style="color:var(--cream-dim); font-size:13px; margin-top:-8px;">La classe doit rester calme pendant toute la durée. En cas de bruit, le chrono se met en pause jusqu'au retour au calme.</p>
+    <label>Durée du défi</label>
+    <div class="duration-grid" id="durationGrid">
+      <button data-min="1">1 min</button>
+      <button data-min="2">2 min</button>
+      <button data-min="3">3 min</button>
+      <button data-min="5">5 min</button>
+      <button data-min="10">10 min</button>
+      <button data-min="15">15 min</button>
+    </div>
+    <button class="launch-challenge-btn" id="launchChallengeBtn">Lancer le défi</button>
+    <button class="reset-btn" id="cancelChallengeBtn">Annuler</button>
+  </div>
+</div>
+
+<!-- Challenge running screen -->
+<div class="challenge-screen" id="challengeScreen">
+  <div class="label">Défi Silence — <span id="challengeClassLabel"></span></div>
+  <div class="countdown" id="challengeCountdown">01:00</div>
+  <div class="msg" id="challengeMsg">C'est parti, silence total !</div>
+  <button class="abandon-btn" id="abandonChallengeBtn">Abandonner</button>
+</div>
+
+<!-- Challenge success screen -->
+<div class="challenge-success" id="challengeSuccess">
+  <div class="emoji">🎉</div>
+  <h2>Défi réussi !</h2>
+  <p id="challengeSuccessDetail">La classe a tenu le silence.</p>
+  <button id="challengeSuccessBtn">Continuer</button>
+</div>
+
+<!-- Mic permission message -->
+<div class="mic-msg" id="micMsg">
+  <div class="emoji">🎙️</div>
+  <h3>Accès au micro nécessaire</h3>
+  <p>Cette appli a besoin du micro pour mesurer le bruit de la classe. Si ça ne fonctionne pas ici, télécharge le fichier et ouvre-le directement dans Chrome sur ton téléphone — il fonctionnera hors ligne, sans installation.</p>
+  <button id="micRetryBtn">Réessayer</button>
+</div>
+
+<script>
+(function(){
+  // ---------- State ----------
+  let audioCtx, analyser, dataArray, mic, rafId;
+  let running = false;
+  let smoothedLevel = 0;
+  let baseline = 8; // ambient noise floor, adjustable via calibration
+  let sensitivity = 1;
+  let thAttention = 35, thBruit = 65;
+  let pointsInterval = 20;
+  let silenceSeconds = 0, points = 0, record = 0;
+  let lastTick = null;
+  let history = [];
+  let challengeActive = false, challengeRemaining = 0, challengeTotal = 0, challengeAutoStarted = false, challengeSelectedMinutes = null;
+  const HISTORY_LEN = 40;
+
+  const el = id => document.getElementById(id);
+  const drumFace = el('drumFace');
+  const arcFill = el('arcFill');
+  const statusWord = el('statusWord');
+  const statusSub = el('statusSub');
+  const levelNumber = el('levelNumber');
+  const timerValue = el('timerValue');
+  const recordValue = el('recordValue');
+  const pointsValue = el('pointsValue');
+  const brandDot = el('brandDot');
+  const historyEl = el('history');
+  const toggleBtn = el('toggleBtn');
+  const challengeScreen = el('challengeScreen');
+  const challengeCountdown = el('challengeCountdown');
+  const challengeMsg = el('challengeMsg');
+  const challengeSuccess = el('challengeSuccess');
+
+  const RADIUS = 86;
+  const CIRC = 2 * Math.PI * RADIUS;
+  arcFill.style.strokeDasharray = CIRC;
+  arcFill.style.strokeDashoffset = CIRC;
+
+  // build lacing marks around drum rim
+  const lacing = el('lacing');
+  for(let i=0;i<24;i++){
+    const angle = (i/24) * Math.PI * 2;
+    const x1 = 100 + Math.cos(angle)*72, y1 = 100 + Math.sin(angle)*72;
+    const x2 = 100 + Math.cos(angle)*80, y2 = 100 + Math.sin(angle)*80;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    lacing.appendChild(line);
+  }
+  for(let i=0;i<HISTORY_LEN;i++){
+    const bar = document.createElement('div');
+    bar.className='bar'; bar.style.height='2px';
+    historyEl.appendChild(bar);
+  }
+
+  function setCssVar(name, val){ document.documentElement.style.setProperty(name, val); }
+
+  function stateFor(level){
+    if(level >= thBruit) return {key:'bruit', color:'var(--bruit)', word:'TROP BRUYANT', sub:'La classe doit se calmer'};
+    if(level >= thAttention) return {key:'attention', color:'var(--attention)', word:'ATTENTION', sub:'Le bruit monte'};
+    return {key:'calme', color:'var(--calme)', word:'CALME', sub:'Parfait pour travailler'};
+  }
+
+  function fmtTime(s){
+    const m = Math.floor(s/60).toString().padStart(2,'0');
+    const sec = Math.floor(s%60).toString().padStart(2,'0');
+    return `${m}:${sec}`;
+  }
+
+  // ---------- Per-class data ----------
+  let appData = { classes:[{name:'Classe 1', points:0, record:0, challengesWon:0}], currentClass:'Classe 1' };
+
+  function getCurrentClassObj(){
+    let cls = appData.classes.find(c=>c.name === appData.currentClass);
+    if(!cls){ cls = appData.classes[0]; appData.currentClass = cls.name; }
+    return cls;
+  }
+
+  async function loadData(){
+    try{
+      const r = await window.storage.get('tamtam-data');
+      if(r){
+        const parsed = JSON.parse(r.value);
+        if(parsed && parsed.classes && parsed.classes.length) appData = parsed;
+      }
+    }catch(e){}
+    refreshFromCurrentClass();
+    renderClassBadge();
+  }
+  async function saveData(){
+    try{ await window.storage.set('tamtam-data', JSON.stringify(appData)); }catch(e){}
+  }
+
+  function refreshFromCurrentClass(){
+    const cls = getCurrentClassObj();
+    points = cls.points || 0;
+    record = cls.record || 0;
+    recordValue.textContent = fmtTime(record);
+    pointsValue.textContent = `${points} ⭐`;
+  }
+
+  function renderClassBadge(){
+    el('classBadgeName').textContent = appData.currentClass;
+  }
+
+  function renderClassList(){
+    const listEl = el('classList');
+    listEl.innerHTML = '';
+    appData.classes.forEach(cls=>{
+      const li = document.createElement('li');
+      if(cls.name === appData.currentClass) li.classList.add('active');
+      li.innerHTML = `
+        <div>
+          <div class="cl-name">${cls.name}</div>
+          <div class="cl-stats">${cls.points||0} pts · record ${fmtTime(cls.record||0)} · ${cls.challengesWon||0} défi(s) réussi(s)</div>
+        </div>
+        <button class="cl-select">${cls.name===appData.currentClass ? 'Actuelle' : 'Choisir'}</button>`;
+      li.querySelector('.cl-select').addEventListener('click', ()=>{
+        appData.currentClass = cls.name;
+        silenceSeconds = 0;
+        refreshFromCurrentClass();
+        renderClassBadge();
+        renderClassList();
+        saveData();
+      });
+      listEl.appendChild(li);
+    });
+  }
+
+  function addClass(name){
+    name = name.trim();
+    if(!name) return;
+    if(appData.classes.some(c=>c.name.toLowerCase()===name.toLowerCase())) return;
+    appData.classes.push({name, points:0, record:0, challengesWon:0});
+    saveData();
+    renderClassList();
+  }
+
+  async function startMic(){
+    try{
+      mic = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.4;
+      const src = audioCtx.createMediaStreamSource(mic);
+      src.connect(analyser);
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      el('micMsg').classList.remove('open');
+      return true;
+    }catch(err){
+      el('micMsg').classList.add('open');
+      return false;
+    }
+  }
+
+  function stopMic(){
+    if(mic){ mic.getTracks().forEach(t=>t.stop()); mic=null; }
+    if(audioCtx){ audioCtx.close(); audioCtx=null; }
+    if(rafId) cancelAnimationFrame(rafId);
+  }
+
+  function computeLevel(){
+    analyser.getByteFrequencyData(dataArray);
+    let sum = 0;
+    for(let i=0;i<dataArray.length;i++){ sum += dataArray[i]*dataArray[i]; }
+    const rms = Math.sqrt(sum/dataArray.length);
+    let level = Math.max(0, (rms - baseline) * sensitivity * 1.6);
+    level = Math.min(100, level);
+    return level;
+  }
+
+  function pushHistory(level){
+    history.push(level);
+    if(history.length > HISTORY_LEN) history.shift();
+    const bars = historyEl.children;
+    const offset = bars.length - history.length;
+    for(let i=0;i<bars.length;i++){
+      if(i < offset){ bars[i].style.height='2px'; continue; }
+      const v = history[i-offset];
+      bars[i].style.height = Math.max(2, (v/100)*34) + 'px';
+      const st = stateFor(v);
+      bars[i].style.background = getComputedStyle(document.documentElement).getPropertyValue(st.color.match(/--[\w-]+/)[0]);
+    }
+  }
+
+  function tick(ts){
+    if(!running) return;
+    const level = computeLevel();
+    smoothedLevel += (level - smoothedLevel) * 0.25;
+
+    const st = stateFor(smoothedLevel);
+    setCssVar('--state-color', st.color);
+    drumFace.setAttribute('fill', st.key==='calme' ? '#3b2a1a' : (st.key==='attention' ? '#4a3a1a' : '#4a1a1a'));
+    statusWord.textContent = st.word;
+    statusSub.textContent = st.sub;
+    levelNumber.textContent = Math.round(smoothedLevel);
+    brandDot.style.background = st.color;
+
+    const offset = CIRC - (smoothedLevel/100) * CIRC;
+    arcFill.style.strokeDashoffset = offset;
+    arcFill.style.stroke = getComputedStyle(document.documentElement).getPropertyValue(st.color.match(/--[\w-]+/)[0]);
+
+    // subtle pulse on drum when loud
+    const scale = 1 + Math.min(0.06, (smoothedLevel/100)*0.08);
+    document.querySelector('.drum-center').style.transform = `scale(${scale})`;
+
+    // timer logic
+    const now = performance.now();
+    if(lastTick){
+      const dt = (now - lastTick)/1000;
+      const cls = getCurrentClassObj();
+      if(st.key === 'calme'){
+        silenceSeconds += dt;
+        if(silenceSeconds > record){
+          record = silenceSeconds; recordValue.textContent = fmtTime(record);
+          cls.record = record;
+        }
+        if(Math.floor(silenceSeconds / pointsInterval) > Math.floor((silenceSeconds-dt)/pointsInterval)){
+          points += 1;
+          pointsValue.textContent = `${points} ⭐`;
+          cls.points = points;
+          saveData();
+        }
+      } else {
+        if(silenceSeconds > 0){ cls.record = Math.max(cls.record||0, record); saveData(); }
+        silenceSeconds = 0;
+      }
+      timerValue.textContent = fmtTime(silenceSeconds);
+
+      // ---- Challenge mode ----
+      if(challengeActive){
+        if(st.key === 'calme'){
+          challengeRemaining -= dt;
+          challengeMsg.textContent = 'Silence parfait, continue...';
+        } else if(st.key === 'attention'){
+          challengeMsg.textContent = 'Chut... presque là';
+        } else {
+          challengeMsg.textContent = 'Trop de bruit ! En pause...';
+        }
+        challengeCountdown.textContent = fmtTime(Math.max(0, challengeRemaining));
+        challengeCountdown.style.color = getComputedStyle(document.documentElement).getPropertyValue(st.color.match(/--[\w-]+/)[0]);
+        if(challengeRemaining <= 0){
+          completeChallenge();
+        }
+      }
+    }
+    lastTick = now;
+
+    if(Math.random() < 0.5){ // throttle history updates a bit
+      pushHistory(smoothedLevel);
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  async function toggleRunning(){
+    if(running){
+      running = false;
+      stopMic();
+      toggleBtn.textContent = '▶️ Démarrer';
+      toggleBtn.classList.remove('btn-stop');
+      toggleBtn.classList.add('btn-start');
+      statusWord.textContent = 'EN PAUSE';
+      statusSub.textContent = 'Appuie sur Démarrer';
+      levelNumber.textContent = '--';
+      if(silenceSeconds > 0) saveRecord();
+    } else {
+      const ok = await startMic();
+      if(!ok) return;
+      running = true;
+      lastTick = null;
+      toggleBtn.textContent = '⏸️ Arrêter';
+      toggleBtn.classList.remove('btn-start');
+      toggleBtn.classList.add('btn-stop');
+      rafId = requestAnimationFrame(tick);
+    }
+  }
+
+  async function calibrate(){
+    const wasRunning = running;
+    let ctx = audioCtx, an = analyser, arr = dataArray, m = mic;
+    let tempStarted = false;
+    if(!ctx || !an){
+      const ok = await startMic();
+      if(!ok) return;
+      ctx = audioCtx; an = analyser; arr = dataArray;
+      tempStarted = true;
+    }
+    statusWord.textContent = 'CALIBRAGE...';
+    statusSub.textContent = 'Silence pendant 3 secondes';
+    let samples = [];
+    const collect = () => {
+      an.getByteFrequencyData(arr);
+      let sum=0; for(let i=0;i<arr.length;i++) sum += arr[i]*arr[i];
+      samples.push(Math.sqrt(sum/arr.length));
+    };
+    const iv = setInterval(collect, 100);
+    setTimeout(()=>{
+      clearInterval(iv);
+      if(samples.length){
+        baseline = samples.reduce((a,b)=>a+b,0)/samples.length + 2;
+      }
+      statusWord.textContent = wasRunning ? 'CALME' : 'PRÊT';
+      statusSub.textContent = wasRunning ? 'Parfait pour travailler' : 'Réglé ! Appuie sur Démarrer';
+      if(tempStarted && !wasRunning){ stopMic(); }
+    }, 3000);
+  }
+
+  // ---------- UI wiring ----------
+  toggleBtn.addEventListener('click', toggleRunning);
+  el('calibrateBtn').addEventListener('click', calibrate);
+  el('micRetryBtn').addEventListener('click', async ()=>{ await toggleRunning(); });
+
+  el('settingsBtn').addEventListener('click', ()=> el('overlay').classList.add('open'));
+  el('closePanelBtn').addEventListener('click', ()=> el('overlay').classList.remove('open'));
+  el('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') el('overlay').classList.remove('open'); });
+
+  const sensSlider = el('sensSlider');
+  sensSlider.addEventListener('input', ()=>{ sensitivity = parseFloat(sensSlider.value); el('sensLabel').textContent = sensitivity.toFixed(1)+'x'; });
+  el('sensLabel').textContent = '1.0x';
+
+  const thAttSlider = el('thAttSlider');
+  thAttSlider.addEventListener('input', ()=>{
+    thAttention = parseInt(thAttSlider.value);
+    if(thAttention >= thBruit){ thBruit = thAttention+1; el('thBruitSlider').value = thBruit; el('thBruitLabel').textContent = thBruit; }
+    el('thAttLabel').textContent = thAttention;
+  });
+  el('thAttLabel').textContent = thAttention;
+
+  const thBruitSlider = el('thBruitSlider');
+  thBruitSlider.addEventListener('input', ()=>{
+    thBruit = parseInt(thBruitSlider.value);
+    if(thBruit <= thAttention){ thAttention = thBruit-1; el('thAttSlider').value = thAttention; el('thAttLabel').textContent = thAttention; }
+    el('thBruitLabel').textContent = thBruit;
+  });
+  el('thBruitLabel').textContent = thBruit;
+
+  const ptsSlider = el('pointsIntervalSlider');
+  ptsSlider.addEventListener('input', ()=>{ pointsInterval = parseInt(ptsSlider.value); el('pointsIntervalLabel').textContent = pointsInterval+'s'; });
+
+  el('resetBtn').addEventListener('click', async ()=>{
+    const cls = getCurrentClassObj();
+    points = 0; record = 0; silenceSeconds = 0;
+    cls.points = 0; cls.record = 0; cls.challengesWon = 0;
+    pointsValue.textContent = '0 ⭐';
+    recordValue.textContent = '00:00';
+    timerValue.textContent = '00:00';
+    await saveData();
+  });
+
+  // ---------- Class panel ----------
+  el('classBadge').addEventListener('click', ()=>{ renderClassList(); el('classOverlay').classList.add('open'); });
+  el('closeClassBtn').addEventListener('click', ()=> el('classOverlay').classList.remove('open'));
+  el('classOverlay').addEventListener('click', (e)=>{ if(e.target.id==='classOverlay') el('classOverlay').classList.remove('open'); });
+  el('addClassBtn').addEventListener('click', ()=>{
+    addClass(el('newClassInput').value);
+    el('newClassInput').value = '';
+  });
+  el('newClassInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ addClass(el('newClassInput').value); el('newClassInput').value=''; }
+  });
+
+  // ---------- Challenge mode ----------
+  el('challengeBtn').addEventListener('click', ()=>{
+    challengeSelectedMinutes = null;
+    document.querySelectorAll('#durationGrid button').forEach(b=>b.classList.remove('selected'));
+    el('challengeOverlay').classList.add('open');
+  });
+  el('cancelChallengeBtn').addEventListener('click', ()=> el('challengeOverlay').classList.remove('open'));
+  document.querySelectorAll('#durationGrid button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#durationGrid button').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      challengeSelectedMinutes = parseInt(btn.dataset.min);
+    });
+  });
+
+  async function launchChallenge(){
+    const minutes = challengeSelectedMinutes || 2;
+    el('challengeOverlay').classList.remove('open');
+    if(!running){
+      const ok = await startMic();
+      if(!ok) return;
+      running = true; lastTick = null;
+      challengeAutoStarted = true;
+      rafId = requestAnimationFrame(tick);
+    }
+    challengeActive = true;
+    challengeTotal = minutes*60;
+    challengeRemaining = minutes*60;
+    el('challengeClassLabel').textContent = appData.currentClass;
+    challengeCountdown.textContent = fmtTime(challengeRemaining);
+    challengeMsg.textContent = 'C\'est parti, silence total !';
+    challengeScreen.classList.add('open');
+  }
+  el('launchChallengeBtn').addEventListener('click', launchChallenge);
+
+  function endChallengeSession(){
+    if(challengeAutoStarted){
+      running = false;
+      stopMic();
+      toggleBtn.textContent = '▶️ Démarrer';
+      toggleBtn.classList.remove('btn-stop');
+      toggleBtn.classList.add('btn-start');
+      statusWord.textContent = 'EN PAUSE';
+      statusSub.textContent = 'Appuie sur Démarrer';
+      levelNumber.textContent = '--';
+      challengeAutoStarted = false;
+    }
+  }
+
+  el('abandonChallengeBtn').addEventListener('click', ()=>{
+    challengeActive = false;
+    challengeScreen.classList.remove('open');
+    endChallengeSession();
+  });
+
+  function completeChallenge(){
+    challengeActive = false;
+    challengeScreen.classList.remove('open');
+    const cls = getCurrentClassObj();
+    cls.points = (cls.points||0) + 5;
+    cls.challengesWon = (cls.challengesWon||0) + 1;
+    points = cls.points;
+    pointsValue.textContent = `${points} ⭐`;
+    saveData();
+    el('challengeSuccessDetail').textContent = `${appData.currentClass} a tenu ${fmtTime(challengeTotal)} de silence. +5 points !`;
+    challengeSuccess.classList.add('open');
+  }
+  el('challengeSuccessBtn').addEventListener('click', ()=>{
+    challengeSuccess.classList.remove('open');
+    endChallengeSession();
+  });
+
+  loadData();
+})();
+</script>
+</body>
+</html>
