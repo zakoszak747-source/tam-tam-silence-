@@ -1,5 +1,1584 @@
 
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tam-Tam Silence — Moniteur de bruit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --calme:#008751;
+    --attention:#FFD100;
+    --bruit:#D21034;
+    --wood:#241a12;
+    --wood-light:#3b2a1a;
+    --cream:#F4EFE6;
+    --cream-dim:#cfc6b4;
+    --state-color: var(--calme);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--wood);
+    color:var(--cream);
+    font-family:'Fredoka',sans-serif;
+    overflow:hidden;
+    touch-action:manipulation;
+  }
+  body{
+    display:flex; flex-direction:column;
+    height:100vh; height:100dvh;
+    transition:background 0.6s ease;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.05), transparent 60%),
+      var(--wood);
+  }
+
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px 6px;
+    flex-shrink:0;
+  }
+  .brand{
+    display:flex; align-items:center; gap:8px;
+    font-size:15px; font-weight:600; letter-spacing:0.5px;
+    color:var(--cream-dim);
+  }
+  .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--state-color); transition:background 0.4s;}
+  .icon-btn{
+    background:var(--wood-light); border:1px solid rgba(244,239,230,0.15);
+    color:var(--cream); width:38px; height:38px; border-radius:12px;
+    font-size:18px; display:flex; align-items:center; justify-content:center;
+  }
+
+  main{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:4px 16px; min-height:0;
+  }
+
+  /* --- Drum gauge --- */
+  .drum-wrap{
+    position:relative;
+    width:min(64vw, 300px); height:min(64vw, 300px);
+    flex-shrink:1;
+  }
+  svg.drum{width:100%; height:100%; display:block;}
+  .drum-face{
+    transition: fill 0.5s ease;
+  }
+  .lacing line{
+    stroke:#a9895f; stroke-width:2; opacity:0.55;
+  }
+  .arc-bg{ fill:none; stroke:rgba(255,255,255,0.08); stroke-width:14; }
+  .arc-fill{
+    fill:none; stroke-width:14; stroke-linecap:round;
+    transition: stroke-dashoffset 0.15s linear, stroke 0.4s ease;
+  }
+  .drum-center{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    transition:transform 0.15s ease;
+  }
+  .status-word{
+    font-size:clamp(20px,5.5vw,30px); font-weight:700; letter-spacing:0.5px;
+    color:var(--state-color); transition:color 0.4s ease;
+    text-shadow:0 2px 10px rgba(0,0,0,0.4);
+  }
+  .status-sub{
+    font-size:13px; color:var(--cream-dim); margin-top:2px; font-weight:500;
+  }
+  .level-number{
+    font-family:'Space Grotesk',monospace; font-size:clamp(38px,10vw,58px); font-weight:700;
+    line-height:1; margin-top:6px;
+  }
+
+  /* --- Stats row --- */
+  .stats{
+    display:flex; gap:10px; width:100%; max-width:420px; margin-top:18px;
+  }
+  .stat-card{
+    flex:1; background:rgba(244,239,230,0.06); border:1px solid rgba(244,239,230,0.12);
+    border-radius:14px; padding:10px 8px; text-align:center;
+  }
+  .stat-label{font-size:11px; color:var(--cream-dim); text-transform:uppercase; letter-spacing:0.6px;}
+  .stat-value{font-family:'Space Grotesk',monospace; font-size:20px; font-weight:700; margin-top:2px;}
+  .stat-value.timer{color:var(--calme);}
+  .stat-value.points{color:#FFD100;}
+
+  /* --- History strip --- */
+  .history{
+    width:100%; max-width:420px; height:34px; margin-top:14px;
+    display:flex; align-items:flex-end; gap:2px;
+    background:rgba(0,0,0,0.2); border-radius:8px; padding:3px;
+  }
+  .history .bar{
+    flex:1; min-width:2px; border-radius:2px 2px 0 0;
+    background:var(--calme); transition:height 0.15s linear, background 0.15s linear;
+  }
+
+  footer{
+    flex-shrink:0; padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+    display:flex; gap:10px; max-width:420px; margin:0 auto; width:100%;
+  }
+  button.main-btn{
+    flex:1; border:none; border-radius:16px; padding:15px 10px;
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:16px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-start{background:var(--calme); color:white;}
+  .btn-stop{background:var(--bruit); color:white;}
+  .btn-secondary{
+    background:var(--wood-light); color:var(--cream);
+    border:1px solid rgba(244,239,230,0.15) !important;
+    flex:0 0 auto; width:52px;
+  }
+  .footer-row2{
+    flex-shrink:0; padding:0 16px calc(14px + env(safe-area-inset-bottom));
+    display:flex; gap:10px; max-width:420px; margin:0 auto; width:100%;
+  }
+  .footer-row2 .main-btn{flex:1; width:auto;}
+  .btn-secondary.active-mode{
+    background:var(--attention); color:#241a12; border-color:var(--attention) !important;
+  }
+
+  .protection-badge{
+    display:none; align-items:center; gap:8px;
+    background:rgba(255,209,0,0.14); border:1px solid rgba(255,209,0,0.4);
+    color:var(--attention); font-family:'Fredoka'; font-weight:600; font-size:13px;
+    padding:8px 14px; border-radius:100px; margin-bottom:14px;
+  }
+  .protection-badge.show{display:flex;}
+
+  .incident-btn{
+    display:none; align-items:center; gap:8px;
+    background:var(--bruit); color:white; border:none;
+    font-family:'Fredoka'; font-weight:600; font-size:13.5px;
+    padding:10px 18px; border-radius:100px; margin-top:14px;
+  }
+  .incident-btn.show{display:flex;}
+
+  .incident-quick input{
+    width:100%; background:rgba(0,0,0,0.25); border:1px solid rgba(244,239,230,0.2);
+    border-radius:10px; padding:13px 12px; color:var(--cream); font-family:'Fredoka'; font-size:15px;
+    margin-top:6px;
+  }
+  .incident-log-wrap{
+    margin-top:6px; border:1px solid rgba(244,239,230,0.1); border-radius:14px;
+    overflow:hidden; max-height:260px; overflow-y:auto;
+  }
+  table.incident-table{width:100%; border-collapse:collapse;}
+  table.incident-table thead th{
+    position:sticky; top:0; background:var(--wood-light);
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.4px;
+    color:var(--cream-dim); padding:9px 10px; font-weight:600;
+  }
+  table.incident-table tbody td{
+    padding:10px; font-size:13.5px; border-top:1px solid rgba(244,239,230,0.07);
+  }
+  table.incident-table td.num{font-family:'Space Grotesk',monospace; font-weight:700; color:var(--bruit);}
+  .incident-empty{color:var(--cream-dim); font-size:13px; text-align:center; padding:18px 0;}
+
+  /* --- Projector mode --- */
+  body.projector header, body.projector footer, body.projector .footer-row2,
+  body.projector .stats, body.projector .history{ display:none !important; }
+  body.projector .drum-wrap{ width:min(78vw, 480px); height:min(78vw, 480px); }
+  body.projector .status-word{ font-size:clamp(28px,7vw,44px); }
+  body.projector .level-number{ font-size:clamp(50px,14vw,90px); }
+  .exit-projector-btn{
+    display:none; position:fixed; top:16px; right:16px; z-index:60;
+    width:40px; height:40px; border-radius:50%; border:1px solid rgba(244,239,230,0.25);
+    background:rgba(0,0,0,0.35); color:var(--cream); font-size:16px;
+  }
+  body.projector .exit-projector-btn{ display:flex; align-items:center; justify-content:center; }
+
+  /* --- Settings panel --- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.55);
+    display:none; align-items:flex-end; justify-content:center; z-index:20;
+  }
+  .overlay.open{display:flex;}
+  .panel{
+    background:var(--wood-light); width:100%; max-width:460px;
+    border-radius:22px 22px 0 0; padding:20px 20px calc(20px + env(safe-area-inset-bottom));
+    max-height:82vh; overflow-y:auto;
+  }
+  .panel h2{margin:0 0 14px; font-size:19px;}
+  .panel label{display:block; font-size:13px; color:var(--cream-dim); margin:14px 0 6px;}
+  .panel input[type=range]{width:100%; accent-color:var(--calme);}
+  .panel .row{display:flex; justify-content:space-between; font-size:13px; color:var(--cream-dim);}
+  .panel .close-btn{
+    margin-top:18px; width:100%; padding:13px; border:none; border-radius:14px;
+    background:var(--calme); color:white; font-family:'Fredoka'; font-weight:600; font-size:15px;
+  }
+  .panel .reset-btn{
+    margin-top:10px; width:100%; padding:13px; border:1px solid rgba(244,239,230,0.2);
+    border-radius:14px; background:transparent; color:var(--cream-dim); font-family:'Fredoka'; font-size:14px;
+  }
+  .mic-msg{
+    position:fixed; inset:0; background:var(--wood); z-index:30;
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    padding:30px; text-align:center;
+  }
+  .mic-msg.open{display:flex;}
+  .mic-msg .emoji{font-size:52px; margin-bottom:14px;}
+  .mic-msg h3{margin:0 0 10px; font-size:19px;}
+  .mic-msg p{color:var(--cream-dim); font-size:14px; line-height:1.5; max-width:320px;}
+  .mic-msg button{
+    margin-top:20px; padding:13px 28px; border:none; border-radius:14px;
+    background:var(--calme); color:white; font-family:'Fredoka'; font-weight:600; font-size:15px;
+  }
+
+  /* --- Hamburger + current class label --- */
+  .menu-toggle{
+    background:var(--wood-light); border:1px solid rgba(244,239,230,0.15);
+    color:var(--cream); width:38px; height:38px; border-radius:12px;
+    font-size:17px; display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .header-left{display:flex; align-items:center; gap:10px; min-width:0;}
+  .current-class-label{
+    font-size:12.5px; color:var(--cream-dim); font-weight:600;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  /* --- Home menu panel --- */
+  .menu-logo-row{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+  .menu-logo-mark{
+    width:40px; height:40px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #4a3420, var(--wood-light));
+    border:1.5px solid var(--calme);
+    display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;
+    position:relative; overflow:hidden; cursor:pointer;
+    background-size:cover; background-position:center;
+  }
+  .menu-logo-mark::after{
+    content:'✏️'; position:absolute; bottom:-2px; right:-2px;
+    background:var(--calme); border-radius:50%; width:16px; height:16px;
+    font-size:9px; display:flex; align-items:center; justify-content:center;
+  }
+  .menu-logo-text{font-family:'Fredoka'; font-weight:600; font-size:16px; line-height:1.2;}
+  .menu-logo-text small{display:block; font-weight:500; font-size:11px; color:var(--cream-dim);}
+  .menu-link{
+    display:flex; align-items:center; gap:10px; width:100%;
+    background:rgba(244,239,230,0.06); border:1px solid rgba(244,239,230,0.1);
+    color:var(--cream); border-radius:12px; padding:13px 14px; margin-bottom:10px;
+    font-family:'Fredoka'; font-weight:600; font-size:14.5px;
+  }
+  select.class-select{
+    width:100%; background:rgba(0,0,0,0.25); border:1px solid rgba(244,239,230,0.2);
+    color:var(--cream); border-radius:10px; padding:12px 12px; font-family:'Fredoka'; font-size:14px;
+    margin-top:6px; -webkit-appearance:none; appearance:none;
+  }
+  .recap-wrap{
+    margin-top:16px; border:1px solid rgba(244,239,230,0.1); border-radius:14px;
+    overflow:hidden; max-height:220px; overflow-y:auto;
+  }
+  table.recap{width:100%; border-collapse:collapse;}
+  table.recap thead th{
+    position:sticky; top:0; background:var(--wood-light);
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.4px;
+    color:var(--cream-dim); padding:9px 10px; font-weight:600;
+  }
+  table.recap tbody td{
+    padding:10px; font-size:13px; border-top:1px solid rgba(244,239,230,0.07);
+  }
+  table.recap tbody tr.active-row td:first-child{color:var(--calme); font-weight:700;}
+  table.recap td.num{font-family:'Space Grotesk',monospace; font-weight:600;}
+
+  /* --- Class badge --- */
+  .class-badge{
+    background:var(--wood-light); border:1px solid rgba(244,239,230,0.15);
+    color:var(--cream); padding:8px 12px; border-radius:12px;
+    font-family:'Fredoka'; font-size:13px; font-weight:600;
+    display:flex; align-items:center; gap:6px; max-width:150px;
+  }
+  .class-badge span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  /* --- Class list / ranking --- */
+  .class-list{list-style:none; margin:0; padding:0;}
+  .class-list li{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:11px 12px; border-radius:12px; margin-bottom:8px;
+    background:rgba(244,239,230,0.06); border:1px solid rgba(244,239,230,0.1);
+  }
+  .class-list li.active{border-color:var(--calme); background:rgba(0,135,81,0.15);}
+  .class-list .cl-name{font-weight:600; font-size:14px;}
+  .class-list .cl-stats{font-size:11px; color:var(--cream-dim); margin-top:2px;}
+  .class-list .cl-select{
+    background:var(--calme); color:white; border:none; border-radius:10px;
+    padding:7px 12px; font-family:'Fredoka'; font-weight:600; font-size:12px;
+  }
+  .class-list li.active .cl-select{background:transparent; color:var(--calme); border:1px solid var(--calme);}
+  .new-class-row{display:flex; gap:8px; margin-top:12px;}
+  .new-class-row input{
+    flex:1; background:rgba(0,0,0,0.25); border:1px solid rgba(244,239,230,0.2);
+    border-radius:10px; padding:11px 12px; color:var(--cream); font-family:'Fredoka'; font-size:14px;
+  }
+  .new-class-row button{
+    background:var(--attention); color:#241a12; border:none; border-radius:10px;
+    padding:0 16px; font-family:'Fredoka'; font-weight:700; font-size:14px;
+  }
+
+  /* --- Challenge duration picker --- */
+  .duration-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:8px;}
+  .duration-grid button{
+    padding:14px 6px; border-radius:14px; border:1px solid rgba(244,239,230,0.18);
+    background:rgba(244,239,230,0.06); color:var(--cream); font-family:'Space Grotesk'; font-weight:700; font-size:15px;
+  }
+  .duration-grid button.selected{background:var(--attention); color:#241a12; border-color:var(--attention);}
+  .launch-challenge-btn{
+    margin-top:18px; width:100%; padding:14px; border:none; border-radius:14px;
+    background:var(--bruit); color:white; font-family:'Fredoka'; font-weight:700; font-size:16px;
+  }
+
+  /* --- Challenge run screen --- */
+  .challenge-screen{
+    position:fixed; inset:0; z-index:40; display:none; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:30px;
+    background:var(--wood); transition:background 0.5s ease;
+  }
+  .challenge-screen.open{display:flex;}
+  .challenge-screen .label{font-size:14px; color:var(--cream-dim); letter-spacing:1px; text-transform:uppercase;}
+  .challenge-screen .countdown{
+    font-family:'Space Grotesk',monospace; font-weight:700; font-size:clamp(56px,20vw,110px);
+    line-height:1; margin:14px 0; color:var(--calme); transition:color 0.4s ease;
+  }
+  .challenge-screen .msg{font-size:16px; color:var(--cream); min-height:24px; font-weight:600;}
+  .challenge-screen .abandon-btn{
+    margin-top:34px; background:transparent; border:1px solid rgba(244,239,230,0.25);
+    color:var(--cream-dim); padding:11px 22px; border-radius:12px; font-family:'Fredoka'; font-size:14px;
+  }
+  .challenge-success{
+    position:fixed; inset:0; z-index:41; display:none; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:30px;
+    background:rgba(0,135,81,0.97);
+  }
+  .challenge-success.open{display:flex;}
+  .challenge-success .emoji{font-size:64px; margin-bottom:10px;}
+  .challenge-success h2{margin:0 0 6px; font-size:24px;}
+  .challenge-success p{color:rgba(255,255,255,0.85); font-size:14px;}
+  .challenge-success button{
+    margin-top:24px; background:white; color:var(--calme); border:none; border-radius:14px;
+    padding:13px 28px; font-family:'Fredoka'; font-weight:700; font-size:15px;
+  }
+</style>
+</head>
+<body>
+
+<button class="exit-projector-btn" id="exitProjectorBtn">✕</button>
+
+<header>
+  <div class="header-left">
+    <button class="menu-toggle" id="menuToggle">☰</button>
+    <span class="current-class-label" id="currentClassLabel">Classe 1</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <span class="dot" id="brandDot" style="width:8px;height:8px;border-radius:50%;background:var(--calme);"></span>
+    <button class="icon-btn" id="settingsBtn">⚙️</button>
+  </div>
+</header>
+
+<main>
+  <div class="protection-badge" id="protectionBadge"></div>
+  <div class="drum-wrap">
+    <svg class="drum" viewBox="0 0 200 200">
+      <g class="lacing" id="lacing"></g>
+      <circle class="drum-face" id="drumFace" cx="100" cy="100" r="70" fill="#3b2a1a" stroke="rgba(0,0,0,0.3)" stroke-width="2"/>
+      <circle class="arc-bg" cx="100" cy="100" r="86"/>
+      <circle class="arc-fill" id="arcFill" cx="100" cy="100" r="86"
+        transform="rotate(-90 100 100)"/>
+    </svg>
+    <div class="drum-center">
+      <div class="status-word" id="statusWord">PRÊT</div>
+      <div class="status-sub" id="statusSub">Appuie sur Démarrer</div>
+      <div class="level-number" id="levelNumber">--</div>
+    </div>
+  </div>
+
+  <button class="incident-btn" id="logIncidentBtn">🚩 Noter qui parle</button>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Silence</div>
+      <div class="stat-value timer" id="timerValue">00:00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Record</div>
+      <div class="stat-value" id="recordValue">00:00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Points</div>
+      <div class="stat-value points" id="pointsValue">0 ⭐</div>
+    </div>
+  </div>
+
+  <div class="history" id="history"></div>
+</main>
+
+<footer>
+  <button class="main-btn btn-start" id="toggleBtn">▶️ Démarrer</button>
+</footer>
+<div class="footer-row2">
+  <button class="main-btn btn-secondary" id="calibrateBtn">🎯</button>
+  <button class="main-btn btn-secondary" id="challengeBtn">🏆</button>
+  <button class="main-btn btn-secondary" id="teacherModeBtn">🎤</button>
+  <button class="main-btn btn-secondary" id="questionPauseBtn">🙋</button>
+</div>
+
+<!-- Settings panel -->
+<div class="overlay" id="overlay">
+  <div class="panel">
+    <h2>Réglages</h2>
+
+    <label>Sensibilité du micro <span id="sensLabel"></span></label>
+    <input type="range" id="sensSlider" min="0.5" max="3" step="0.1" value="1">
+
+    <label>Seuil « Attention » (jaune) <span id="thAttLabel"></span></label>
+    <input type="range" id="thAttSlider" min="10" max="90" step="1" value="35">
+
+    <label>Seuil « Trop bruyant » (rouge) <span id="thBruitLabel"></span></label>
+    <input type="range" id="thBruitSlider" min="20" max="100" step="1" value="65">
+
+    <label>Minutes de calme pour gagner 1 point (5 min minimum)</label>
+    <input type="range" id="pointsIntervalSlider" min="300" max="1200" step="60" value="300">
+    <div class="row"><span>5 min</span><span id="pointsIntervalLabel">5 min</span><span>20 min</span></div>
+
+    <label>Secondes de bruit avant de perdre 1 point</label>
+    <input type="range" id="penaltyIntervalSlider" min="10" max="120" step="10" value="30">
+    <div class="row"><span>10s</span><span id="penaltyIntervalLabel">30s</span><span>120s</span></div>
+
+    <label style="display:flex; align-items:center; justify-content:space-between;">
+      🔊 Alarme vocale si trop bruyant
+      <input type="checkbox" id="alarmToggle" checked style="width:20px; height:20px; accent-color:var(--calme);">
+    </label>
+
+    <label>Style de l'alarme</label>
+    <select class="class-select" id="alarmStyleSelect">
+      <option value="douce">🎙️ Voix douce</option>
+      <option value="stricte">📢 Voix stricte</option>
+      <option value="clochette">🔔 Clochette (sans voix)</option>
+    </select>
+
+    <label>Durée de la pause question 🙋 <span id="questionGraceLabel">30s</span></label>
+    <input type="range" id="questionGraceSlider" min="10" max="60" step="5" value="30">
+
+    <label style="display:flex; align-items:center; justify-content:space-between; margin-top:18px;">
+      🇹🇬 Afficher en éwé (si rempli ci-dessous)
+      <input type="checkbox" id="languageToggle" style="width:20px; height:20px; accent-color:var(--calme);">
+    </label>
+    <label>Mot pour « calme »</label>
+    <input type="text" id="eweCalmeInput" placeholder="Ex: Fefe">
+    <label>Mot pour « attention »</label>
+    <input type="text" id="eweAttentionInput" placeholder="Mot en éwé">
+    <label>Mot pour « trop bruyant »</label>
+    <input type="text" id="eweBruitInput" placeholder="Mot en éwé">
+    <label>Phrase d'alarme parlée</label>
+    <input type="text" id="eweAlarmInput" placeholder="Phrase en éwé">
+    <p style="color:var(--cream-dim); font-size:11.5px; margin-top:6px;">Tu connais mieux l'éwé que moi — remplis ces mots toi-même, l'appli les utilisera automatiquement.</p>
+    <button class="reset-btn" id="saveEweBtn" style="border-color:var(--calme); color:var(--calme);">Enregistrer les mots éwé</button>
+
+    <button class="reset-btn" id="resetBtn">Réinitialiser points et record</button>
+    <button class="close-btn" id="closePanelBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Home menu panel -->
+<div class="overlay" id="classOverlay">
+  <div class="panel">
+    <div class="menu-logo-row">
+      <div class="menu-logo-mark" id="logoMark">🥁</div>
+      <input type="file" accept="image/*" id="logoInput" style="display:none;">
+      <div class="menu-logo-text">Tam-Tam Silence<small>par AYH · Togo 🇹🇬</small></div>
+    </div>
+
+    <button class="menu-link" id="homeLinkBtn">🏠 Accueil</button>
+
+    <label style="margin-top:4px;">Nom de l'établissement</label>
+    <div class="new-class-row">
+      <input type="text" id="schoolInput" placeholder="Ex: Lycée Nyivémé">
+      <button id="saveSchoolBtn">OK</button>
+    </div>
+
+    <label>Classe active</label>
+    <select class="class-select" id="classSelect"></select>
+
+    <div class="new-class-row">
+      <input type="text" id="newClassInput" placeholder="Nouvelle classe: 3e A...">
+      <button id="addClassBtn">Ajouter</button>
+    </div>
+
+    <label>Récapitulatif des classes</label>
+    <div class="recap-wrap">
+      <table class="recap">
+        <thead><tr><th>Classe</th><th>Record</th><th>Points</th></tr></thead>
+        <tbody id="recapBody"></tbody>
+      </table>
+    </div>
+    <p style="color:var(--cream-dim); font-size:12.5px; margin-top:8px;" id="nextRewardHint"></p>
+
+    <button class="menu-link" id="openIncidentLogBtn">🚩 Journal d'incidents</button>
+    <button class="menu-link" id="openRewardsBtn">🎁 Récompenses</button>
+    <button class="menu-link" id="openReportBtn">📄 Rapport hebdomadaire</button>
+    <button class="menu-link" id="projectorModeBtn">🖥️ Mode Projecteur</button>
+    <button class="menu-link" id="openBackupBtn">💾 Sauvegarde / Restauration</button>
+    <button class="menu-link" id="openSettingsFromMenuBtn" style="margin-top:16px;">⚙️ Réglages</button>
+    <button class="close-btn" id="closeClassBtn">Fermer</button>
+
+    <div style="margin-top:22px; padding-top:16px; border-top:1px solid rgba(244,239,230,0.1); text-align:center;">
+      <p style="font-family:'Fredoka'; font-weight:600; font-size:13.5px;">AYALE Yaovi (Honyore) 🇹🇬</p>
+      <p style="color:var(--cream-dim); font-size:12px; margin-top:2px;">Enseignant SVT · Lycée Nyivémé, Kamina</p>
+      <p style="color:var(--cream-dim); font-size:12px; margin-top:6px;">WhatsApp 98 31 10 80</p>
+      <div class="new-class-row" style="margin-top:10px;">
+        <input type="email" id="contactEmailInput" placeholder="Ton email de contact">
+        <button id="saveEmailBtn">OK</button>
+      </div>
+      <p style="color:var(--cream-dim); font-size:11px; margin-top:6px;" id="contactEmailDisplay"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Challenge setup panel -->
+<div class="overlay" id="challengeOverlay">
+  <div class="panel">
+    <h2>🏆 Défi Silence</h2>
+    <p style="color:var(--cream-dim); font-size:13px; margin-top:-8px;">La classe doit rester calme pendant toute la durée. En cas de bruit, le chrono se met en pause jusqu'au retour au calme.</p>
+    <label>Durée du défi</label>
+    <div class="duration-grid" id="durationGrid">
+      <button data-min="1">1 min</button>
+      <button data-min="2">2 min</button>
+      <button data-min="3">3 min</button>
+      <button data-min="5">5 min</button>
+      <button data-min="10">10 min</button>
+      <button data-min="15">15 min</button>
+    </div>
+    <button class="launch-challenge-btn" id="launchChallengeBtn">Lancer le défi</button>
+    <button class="reset-btn" id="cancelChallengeBtn">Annuler</button>
+  </div>
+</div>
+
+<!-- Challenge running screen -->
+<div class="challenge-screen" id="challengeScreen">
+  <div class="label">Défi Silence — <span id="challengeClassLabel"></span></div>
+  <div class="countdown" id="challengeCountdown">01:00</div>
+  <div class="msg" id="challengeMsg">C'est parti, silence total !</div>
+  <button class="abandon-btn" id="abandonChallengeBtn">Abandonner</button>
+</div>
+
+<!-- Challenge success screen -->
+<div class="challenge-success" id="challengeSuccess">
+  <div class="emoji">🎉</div>
+  <h2>Défi réussi !</h2>
+  <p id="challengeSuccessDetail">La classe a tenu le silence.</p>
+  <button id="challengeSuccessBtn">Continuer</button>
+</div>
+
+<!-- Quick incident entry -->
+<div class="overlay" id="incidentOverlay">
+  <div class="panel">
+    <h2>🚩 Qui a fait du bruit ?</h2>
+    <div class="incident-quick">
+      <input type="text" id="incidentNameInput" placeholder="Ex: Table 3, Kokou, fond de classe..." autofocus>
+    </div>
+    <button class="launch-challenge-btn" id="saveIncidentBtn" style="background:var(--bruit);">Enregistrer</button>
+    <button class="reset-btn" id="cancelIncidentBtn">Annuler</button>
+  </div>
+</div>
+
+<!-- Incident log -->
+<div class="overlay" id="incidentLogOverlay">
+  <div class="panel">
+    <h2>🚩 Journal — <span id="incidentLogClassName"></span></h2>
+    <div class="incident-log-wrap">
+      <table class="incident-table">
+        <thead><tr><th>Nom / Table</th><th>Fois</th></tr></thead>
+        <tbody id="incidentLogBody"></tbody>
+      </table>
+    </div>
+    <div id="incidentEmptyMsg" class="incident-empty" style="display:none;">Aucun incident noté pour cette classe.</div>
+    <button class="reset-btn" id="clearIncidentsBtn">Vider le journal de cette classe</button>
+    <button class="close-btn" id="closeIncidentLogBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Rewards catalogue -->
+<div class="overlay" id="rewardsOverlay">
+  <div class="panel">
+    <h2>🎁 Récompenses</h2>
+    <p style="color:var(--cream-dim); font-size:13px; margin-top:-8px;">Définis ce que les points débloquent pour la classe.</p>
+    <div class="recap-wrap" style="max-height:200px;">
+      <table class="recap">
+        <thead><tr><th>Points</th><th>Récompense</th><th></th></tr></thead>
+        <tbody id="rewardsBody"></tbody>
+      </table>
+    </div>
+    <div class="new-class-row" style="margin-top:12px;">
+      <input type="number" id="rewardPointsInput" placeholder="Pts" style="max-width:70px;">
+      <input type="text" id="rewardLabelInput" placeholder="Ex: 5 min de pause">
+      <button id="addRewardBtn">Ajouter</button>
+    </div>
+    <button class="close-btn" id="closeRewardsBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Backup / restore -->
+<div class="overlay" id="backupOverlay">
+  <div class="panel">
+    <h2>💾 Sauvegarde / Restauration</h2>
+    <p style="color:var(--cream-dim); font-size:13px; margin-top:-8px;">Exporte toutes tes données (classes, points, journal, récompenses) dans un fichier, ou restaure une sauvegarde précédente.</p>
+    <button class="launch-challenge-btn" id="exportDataBtn" style="background:var(--calme);">⬇️ Exporter mes données</button>
+    <button class="launch-challenge-btn" id="importDataTriggerBtn" style="background:var(--attention); color:#241a12;">⬆️ Restaurer une sauvegarde</button>
+    <input type="file" accept="application/json" id="importDataInput" style="display:none;">
+    <button class="close-btn" id="closeBackupBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Weekly report -->
+<div class="overlay" id="reportOverlay">
+  <div class="panel">
+    <h2>📄 Rapport hebdomadaire</h2>
+    <p style="color:var(--cream-dim); font-size:13px; margin-top:-8px;" id="reportClassLabel"></p>
+    <div id="reportTrendChart" style="display:flex; align-items:flex-end; gap:4px; height:70px; margin:14px 0; background:rgba(0,0,0,0.2); border-radius:10px; padding:8px;"></div>
+    <pre id="reportText" style="white-space:pre-wrap; font-family:'Fredoka'; font-size:13.5px; background:rgba(244,239,230,0.06); border-radius:12px; padding:14px; border:1px solid rgba(244,239,230,0.1);"></pre>
+    <button class="launch-challenge-btn" id="shareReportBtn" style="background:var(--calme);">📤 Partager sur WhatsApp</button>
+    <button class="close-btn" id="closeReportBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Mic permission message -->
+<div class="mic-msg" id="micMsg">
+  <div class="emoji">🎙️</div>
+  <h3>Accès au micro nécessaire</h3>
+  <p>Cette appli a besoin du micro pour mesurer le bruit de la classe. Si ça ne fonctionne pas ici, télécharge le fichier et ouvre-le directement dans Chrome sur ton téléphone — il fonctionnera hors ligne, sans installation.</p>
+  <button id="micRetryBtn">Réessayer</button>
+</div>
+
+<script>
+(function(){
+  // ---------- State ----------
+  let audioCtx, analyser, dataArray, mic, rafId;
+  let running = false;
+  let smoothedLevel = 0;
+  let baseline = 8; // ambient noise floor, adjustable via calibration
+  let sensitivity = 1;
+  let thAttention = 35, thBruit = 65;
+  let pointsInterval = 300;
+  let silenceSeconds = 0, noiseSeconds = 0, points = 0, record = 0;
+  let lastTick = null;
+  let history = [];
+  let penaltyInterval = 30;
+  let alarmEnabled = true;
+  let lastAlarmTime = 0;
+  const ALARM_COOLDOWN = 15000; // ms between spoken warnings
+  let teacherModeActive = false;
+  let questionGraceUntil = 0;
+  let questionGraceDuration = 30; // seconds
+  let challengeActive = false, challengeRemaining = 0, challengeTotal = 0, challengeAutoStarted = false, challengeSelectedMinutes = null;
+  const HISTORY_LEN = 40;
+
+  const el = id => document.getElementById(id);
+  const drumFace = el('drumFace');
+  const arcFill = el('arcFill');
+  const statusWord = el('statusWord');
+  const statusSub = el('statusSub');
+  const levelNumber = el('levelNumber');
+  const timerValue = el('timerValue');
+  const recordValue = el('recordValue');
+  const pointsValue = el('pointsValue');
+  const brandDot = el('brandDot');
+  const historyEl = el('history');
+  const toggleBtn = el('toggleBtn');
+  const challengeScreen = el('challengeScreen');
+  const challengeCountdown = el('challengeCountdown');
+  const challengeMsg = el('challengeMsg');
+  const challengeSuccess = el('challengeSuccess');
+
+  const RADIUS = 86;
+  const CIRC = 2 * Math.PI * RADIUS;
+  arcFill.style.strokeDasharray = CIRC;
+  arcFill.style.strokeDashoffset = CIRC;
+
+  // build lacing marks around drum rim
+  const lacing = el('lacing');
+  for(let i=0;i<24;i++){
+    const angle = (i/24) * Math.PI * 2;
+    const x1 = 100 + Math.cos(angle)*72, y1 = 100 + Math.sin(angle)*72;
+    const x2 = 100 + Math.cos(angle)*80, y2 = 100 + Math.sin(angle)*80;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    lacing.appendChild(line);
+  }
+  for(let i=0;i<HISTORY_LEN;i++){
+    const bar = document.createElement('div');
+    bar.className='bar'; bar.style.height='2px';
+    historyEl.appendChild(bar);
+  }
+
+  function setCssVar(name, val){ document.documentElement.style.setProperty(name, val); }
+
+  function stateFor(level){
+    if(level >= thBruit) return {key:'bruit', color:'var(--bruit)', word:'TROP BRUYANT', sub:'La classe doit se calmer'};
+    if(level >= thAttention) return {key:'attention', color:'var(--attention)', word:'ATTENTION', sub:'Le bruit monte'};
+    return {key:'calme', color:'var(--calme)', word:'CALME', sub:'Parfait pour travailler'};
+  }
+
+  function fmtTime(s){
+    const m = Math.floor(s/60).toString().padStart(2,'0');
+    const sec = Math.floor(s%60).toString().padStart(2,'0');
+    return `${m}:${sec}`;
+  }
+
+  function isProtected(){
+    return teacherModeActive || performance.now() < questionGraceUntil;
+  }
+
+  function updateProtectionBadge(){
+    const badge = el('protectionBadge');
+    if(teacherModeActive){
+      badge.textContent = '🎤 Mode Cours actif — pas de pénalité';
+      badge.classList.add('show');
+    } else if(performance.now() < questionGraceUntil){
+      const left = Math.ceil((questionGraceUntil - performance.now())/1000);
+      badge.textContent = `🙋 Pause question — ${left}s`;
+      badge.classList.add('show');
+    } else {
+      badge.classList.remove('show');
+    }
+  }
+
+  function playBell(){
+    try{
+      const ctx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      [880, 660].forEach((freq, i)=>{
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime + i*0.35);
+        gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + i*0.35 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i*0.35 + 0.6);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + i*0.35);
+        osc.stop(ctx.currentTime + i*0.35 + 0.65);
+      });
+    }catch(e){}
+  }
+
+  function speakAlarm(){
+    if(!alarmEnabled) return;
+    const now = performance.now();
+    if(now - lastAlarmTime < ALARM_COOLDOWN) return;
+    lastAlarmTime = now;
+
+    if(appData.alarmStyle === 'clochette'){ playBell(); return; }
+    if(!('speechSynthesis' in window)) return;
+
+    const useEwe = appData.language === 'ewe' && appData.eweWords && appData.eweWords.alarme;
+    const phrase = useEwe ? appData.eweWords.alarme : 'Avertissement, la classe est bruyante';
+    try{
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(phrase);
+      utter.lang = useEwe ? 'fr-FR' : 'fr-FR';
+      if(appData.alarmStyle === 'stricte'){ utter.rate = 1.05; utter.pitch = 0.75; utter.volume = 1; }
+      else { utter.rate = 0.9; utter.pitch = 1.1; utter.volume = 1; }
+      window.speechSynthesis.speak(utter);
+    }catch(e){}
+  }
+
+  // ---------- Per-class data ----------
+  let appData = {
+    school:'', contactEmail:'', logo:'',
+    classes:[{name:'Classe 1', points:0, record:0, challengesWon:0, incidents:[], challengeLog:[]}],
+    currentClass:'Classe 1',
+    rewards:[{points:10, label:'5 minutes de pause'},{points:20, label:'Pas de devoir ce soir'},{points:40, label:'Musique libre en fin de cours'}],
+    alarmStyle:'douce',
+    language:'fr',
+    eweWords:{calme:'', attention:'', bruit:'', alarme:''}
+  };
+
+  function getCurrentClassObj(){
+    let cls = appData.classes.find(c=>c.name === appData.currentClass);
+    if(!cls){ cls = appData.classes[0]; appData.currentClass = cls.name; }
+    return cls;
+  }
+
+  async function loadData(){
+    try{
+      const r = await window.storage.get('tamtam-data');
+      if(r){
+        const parsed = JSON.parse(r.value);
+        if(parsed && parsed.classes && parsed.classes.length) appData = parsed;
+      }
+    }catch(e){}
+    if(!appData.rewards) appData.rewards = [];
+    if(!appData.eweWords) appData.eweWords = {calme:'',attention:'',bruit:'',alarme:''};
+    if(!appData.alarmStyle) appData.alarmStyle = 'douce';
+    if(!appData.language) appData.language = 'fr';
+    appData.classes.forEach(c=>{ if(!c.incidents) c.incidents=[]; if(!c.challengeLog) c.challengeLog=[]; });
+    refreshFromCurrentClass();
+    renderClassBadge();
+    renderClassSelect();
+    renderRecapTable();
+    renderLogo();
+    renderNextRewardHint();
+    syncSettingsUI();
+  }
+  async function saveData(){
+    try{ await window.storage.set('tamtam-data', JSON.stringify(appData)); }catch(e){}
+  }
+
+  function refreshFromCurrentClass(){
+    const cls = getCurrentClassObj();
+    points = cls.points || 0;
+    record = cls.record || 0;
+    recordValue.textContent = fmtTime(record);
+    pointsValue.textContent = `${points} ⭐`;
+  }
+
+  function renderClassBadge(){
+    el('currentClassLabel').textContent = appData.school ? `${appData.school} · ${appData.currentClass}` : appData.currentClass;
+  }
+
+  function renderLogo(){
+    const mark = el('logoMark');
+    if(appData.logo){
+      mark.style.backgroundImage = `url(${appData.logo})`;
+      mark.textContent = '';
+    } else {
+      mark.style.backgroundImage = '';
+      mark.textContent = '🥁';
+    }
+  }
+
+  function handleLogoFile(file){
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const size = 160;
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const scale = Math.max(size/img.width, size/img.height);
+        const w = img.width*scale, h = img.height*scale;
+        ctx.drawImage(img, (size-w)/2, (size-h)/2, w, h);
+        appData.logo = canvas.toDataURL('image/jpeg', 0.85);
+        renderLogo();
+        saveData();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderClassSelect(){
+    const sel = el('classSelect');
+    sel.innerHTML = '';
+    appData.classes.forEach(cls=>{
+      const opt = document.createElement('option');
+      opt.value = cls.name;
+      opt.textContent = cls.name;
+      if(cls.name === appData.currentClass) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  function renderRecapTable(){
+    const body = el('recapBody');
+    body.innerHTML = '';
+    appData.classes.forEach(cls=>{
+      const tr = document.createElement('tr');
+      if(cls.name === appData.currentClass) tr.classList.add('active-row');
+      tr.innerHTML = `
+        <td>${cls.name}</td>
+        <td class="num">${fmtTime(cls.record||0)}</td>
+        <td class="num">${cls.points||0} ⭐</td>`;
+      body.appendChild(tr);
+    });
+  }
+
+  function switchClass(name){
+    appData.currentClass = name;
+    silenceSeconds = 0;
+    refreshFromCurrentClass();
+    renderClassBadge();
+    renderClassSelect();
+    renderRecapTable();
+    renderNextRewardHint();
+    saveData();
+  }
+
+  function renderIncidentLog(){
+    const cls = getCurrentClassObj();
+    const incidents = cls.incidents || [];
+    el('incidentLogClassName').textContent = appData.currentClass;
+    const counts = {};
+    incidents.forEach(inc=>{ counts[inc.label] = (counts[inc.label]||0) + 1; });
+    const sorted = Object.entries(counts).sort((a,b)=> b[1]-a[1]);
+    const body = el('incidentLogBody');
+    body.innerHTML = '';
+    sorted.forEach(([label, count])=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${label}</td><td class="num">${count}</td>`;
+      body.appendChild(tr);
+    });
+    el('incidentEmptyMsg').style.display = sorted.length ? 'none' : 'block';
+  }
+
+  function saveIncident(label){
+    label = label.trim();
+    if(!label) return;
+    const cls = getCurrentClassObj();
+    if(!cls.incidents) cls.incidents = [];
+    cls.incidents.push({label, timestamp: Date.now()});
+    saveData();
+  }
+
+  // ---------- Rewards catalogue ----------
+  function renderRewardsTable(){
+    const body = el('rewardsBody');
+    body.innerHTML = '';
+    const rewards = [...appData.rewards].sort((a,b)=> a.points-b.points);
+    rewards.forEach((r, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="num">${r.points}</td><td>${r.label}</td><td></td>`;
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.style.cssText = 'background:none;border:none;color:var(--bruit);font-size:15px;font-weight:700;';
+      delBtn.addEventListener('click', ()=>{
+        appData.rewards = appData.rewards.filter(x=> !(x.points===r.points && x.label===r.label));
+        saveData();
+        renderRewardsTable();
+        renderNextRewardHint();
+      });
+      tr.lastElementChild.appendChild(delBtn);
+      body.appendChild(tr);
+    });
+  }
+
+  function renderNextRewardHint(){
+    const cls = getCurrentClassObj();
+    const next = [...(appData.rewards||[])].sort((a,b)=>a.points-b.points).find(r=> r.points > (cls.points||0));
+    const hintEl = el('nextRewardHint');
+    if(next){
+      hintEl.textContent = `🎁 Encore ${next.points - (cls.points||0)} pts pour : ${next.label}`;
+    } else if(appData.rewards && appData.rewards.length){
+      hintEl.textContent = `🎉 Toutes les récompenses sont débloquées !`;
+    } else {
+      hintEl.textContent = '';
+    }
+  }
+
+  // ---------- Backup / restore ----------
+  function exportData(){
+    const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `tamtam-silence-sauvegarde-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importDataFromFile(file){
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{
+        const parsed = JSON.parse(e.target.result);
+        if(!parsed || !Array.isArray(parsed.classes) || !parsed.classes.length) throw new Error('invalid');
+        appData = parsed;
+        if(!appData.rewards) appData.rewards = [];
+        if(!appData.eweWords) appData.eweWords = {calme:'',attention:'',bruit:'',alarme:''};
+        saveData();
+        refreshFromCurrentClass();
+        renderClassBadge();
+        renderClassSelect();
+        renderRecapTable();
+        renderLogo();
+        renderNextRewardHint();
+        syncSettingsUI();
+        el('backupOverlay').classList.remove('open');
+        alert('Sauvegarde restaurée avec succès.');
+      }catch(err){
+        alert("Ce fichier n'est pas une sauvegarde valide.");
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // ---------- Weekly report ----------
+  function buildWeeklyReport(){
+    const cls = getCurrentClassObj();
+    const weekAgo = Date.now() - 7*24*60*60*1000;
+    const incidents = (cls.incidents||[]).filter(i=> i.timestamp >= weekAgo);
+    const challenges = (cls.challengeLog||[]).filter(c=> c.timestamp >= weekAgo);
+    const counts = {};
+    incidents.forEach(i=>{ counts[i.label] = (counts[i.label]||0)+1; });
+    const topIncidents = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+    el('reportClassLabel').textContent = `${appData.currentClass} — 7 derniers jours`;
+
+    let text = `Rapport hebdomadaire — ${appData.currentClass}\n`;
+    text += `${appData.school ? appData.school+'\n' : ''}`;
+    text += `Période : 7 derniers jours\n\n`;
+    text += `Points actuels : ${cls.points||0} ⭐\n`;
+    text += `Record de silence : ${fmtTime(cls.record||0)}\n`;
+    text += `Défis Silence réussis cette semaine : ${challenges.length}\n`;
+    text += `Incidents notés cette semaine : ${incidents.length}\n`;
+    if(topIncidents.length){
+      text += `\nLe plus fréquent :\n`;
+      topIncidents.forEach(([label,count])=> text += `  • ${label} — ${count} fois\n`);
+    }
+    el('reportText').textContent = text;
+
+    // Trend chart: incidents per day, last 7 days
+    const chart = el('reportTrendChart');
+    chart.innerHTML = '';
+    const days = [];
+    for(let i=6;i>=0;i--){
+      const dayStart = new Date(); dayStart.setHours(0,0,0,0); dayStart.setDate(dayStart.getDate()-i);
+      const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate()+1);
+      const count = (cls.incidents||[]).filter(inc=> inc.timestamp >= dayStart.getTime() && inc.timestamp < dayEnd.getTime()).length;
+      days.push({label: dayStart.toLocaleDateString('fr-FR',{weekday:'short'}).slice(0,2), count});
+    }
+    const maxCount = Math.max(1, ...days.map(d=>d.count));
+    days.forEach(d=>{
+      const col = document.createElement('div');
+      col.style.cssText = 'flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:3px;';
+      const bar = document.createElement('div');
+      bar.style.cssText = `width:100%; border-radius:3px 3px 0 0; background:${d.count>0?'var(--bruit)':'rgba(244,239,230,0.15)'}; height:${Math.max(3,(d.count/maxCount)*44)}px;`;
+      const lbl = document.createElement('div');
+      lbl.style.cssText = 'font-size:9px; color:var(--cream-dim);';
+      lbl.textContent = d.label;
+      col.appendChild(bar); col.appendChild(lbl);
+      chart.appendChild(col);
+    });
+    return text;
+  }
+
+  function syncSettingsUI(){
+    el('sensSlider').value = sensitivity; el('sensLabel').textContent = sensitivity.toFixed(1)+'x';
+    el('thAttSlider').value = thAttention; el('thAttLabel').textContent = thAttention;
+    el('thBruitSlider').value = thBruit; el('thBruitLabel').textContent = thBruit;
+    el('pointsIntervalSlider').value = pointsInterval; el('pointsIntervalLabel').textContent = (pointsInterval/60)+' min';
+    el('penaltyIntervalSlider').value = penaltyInterval; el('penaltyIntervalLabel').textContent = penaltyInterval+'s';
+    el('alarmToggle').checked = alarmEnabled;
+    el('alarmStyleSelect').value = appData.alarmStyle || 'douce';
+    el('questionGraceSlider').value = questionGraceDuration; el('questionGraceLabel').textContent = questionGraceDuration+'s';
+    el('languageToggle').checked = appData.language === 'ewe';
+    el('eweCalmeInput').value = appData.eweWords.calme || '';
+    el('eweAttentionInput').value = appData.eweWords.attention || '';
+    el('eweBruitInput').value = appData.eweWords.bruit || '';
+    el('eweAlarmInput').value = appData.eweWords.alarme || '';
+  }
+  function addClass(name){
+    name = name.trim();
+    if(!name) return;
+    if(appData.classes.some(c=>c.name.toLowerCase()===name.toLowerCase())) return;
+    appData.classes.push({name, points:0, record:0, challengesWon:0, incidents:[], challengeLog:[]});
+    saveData();
+    renderClassSelect();
+    renderRecapTable();
+  }
+
+  async function startMic(){
+    try{
+      mic = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.4;
+      const src = audioCtx.createMediaStreamSource(mic);
+      src.connect(analyser);
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      el('micMsg').classList.remove('open');
+      return true;
+    }catch(err){
+      el('micMsg').classList.add('open');
+      return false;
+    }
+  }
+
+  function stopMic(){
+    if(mic){ mic.getTracks().forEach(t=>t.stop()); mic=null; }
+    if(audioCtx){ audioCtx.close(); audioCtx=null; }
+    if(rafId) cancelAnimationFrame(rafId);
+  }
+
+  function computeLevel(){
+    analyser.getByteFrequencyData(dataArray);
+    let sum = 0;
+    for(let i=0;i<dataArray.length;i++){ sum += dataArray[i]*dataArray[i]; }
+    const rms = Math.sqrt(sum/dataArray.length);
+    let level = Math.max(0, (rms - baseline) * sensitivity * 1.6);
+    level = Math.min(100, level);
+    return level;
+  }
+
+  function pushHistory(level){
+    history.push(level);
+    if(history.length > HISTORY_LEN) history.shift();
+    const bars = historyEl.children;
+    const offset = bars.length - history.length;
+    for(let i=0;i<bars.length;i++){
+      if(i < offset){ bars[i].style.height='2px'; continue; }
+      const v = history[i-offset];
+      bars[i].style.height = Math.max(2, (v/100)*34) + 'px';
+      const st = stateFor(v);
+      bars[i].style.background = getComputedStyle(document.documentElement).getPropertyValue(st.color.match(/--[\w-]+/)[0]);
+    }
+  }
+
+  function tick(ts){
+    if(!running) return;
+    const level = computeLevel();
+    smoothedLevel += (level - smoothedLevel) * 0.25;
+
+    const st = stateFor(smoothedLevel);
+    setCssVar('--state-color', st.color);
+    drumFace.setAttribute('fill', st.key==='calme' ? '#3b2a1a' : (st.key==='attention' ? '#4a3a1a' : '#4a1a1a'));
+    let displayWord = st.word;
+    if(appData.language === 'ewe' && appData.eweWords){
+      const map = {calme: appData.eweWords.calme, attention: appData.eweWords.attention, bruit: appData.eweWords.bruit};
+      if(map[st.key]) displayWord = map[st.key];
+    }
+    statusWord.textContent = displayWord;
+    statusSub.textContent = st.sub;
+    levelNumber.textContent = Math.round(smoothedLevel);
+    brandDot.style.background = st.color;
+
+    const offset = CIRC - (smoothedLevel/100) * CIRC;
+    arcFill.style.strokeDashoffset = offset;
+    arcFill.style.stroke = getComputedStyle(document.documentElement).getPropertyValue(st.color.match(/--[\w-]+/)[0]);
+
+    // subtle pulse on drum when loud
+    const scale = 1 + Math.min(0.06, (smoothedLevel/100)*0.08);
+    document.querySelector('.drum-center').style.transform = `scale(${scale})`;
+
+    // timer logic
+    const now = performance.now();
+    if(lastTick){
+      const dt = (now - lastTick)/1000;
+      const cls = getCurrentClassObj();
+      if(st.key === 'calme'){
+        silenceSeconds += dt;
+        noiseSeconds = 0;
+        if(silenceSeconds > record){
+          record = silenceSeconds; recordValue.textContent = fmtTime(record);
+          cls.record = record;
+        }
+        if(Math.floor(silenceSeconds / pointsInterval) > Math.floor((silenceSeconds-dt)/pointsInterval)){
+          points += 1;
+          pointsValue.textContent = `${points} ⭐`;
+          cls.points = points;
+          saveData();
+        }
+      } else if(st.key === 'bruit'){
+        if(silenceSeconds > 0){ cls.record = Math.max(cls.record||0, record); saveData(); }
+        silenceSeconds = 0;
+        if(isProtected()){
+          noiseSeconds = 0;
+        } else {
+          noiseSeconds += dt;
+          if(Math.floor(noiseSeconds / penaltyInterval) > Math.floor((noiseSeconds-dt)/penaltyInterval)){
+            points = Math.max(0, points - 1);
+            pointsValue.textContent = `${points} ⭐`;
+            cls.points = points;
+            saveData();
+          }
+          speakAlarm();
+        }
+      } else {
+        if(silenceSeconds > 0){ cls.record = Math.max(cls.record||0, record); saveData(); }
+        silenceSeconds = 0;
+        noiseSeconds = 0;
+      }
+      timerValue.textContent = fmtTime(silenceSeconds);
+      updateProtectionBadge();
+      el('logIncidentBtn').classList.toggle('show', st.key === 'bruit' && !isProtected());
+
+      // ---- Challenge mode ----
+      if(challengeActive){
+        if(st.key === 'calme'){
+          challengeRemaining -= dt;
+          challengeMsg.textContent = 'Silence parfait, continue...';
+        } else if(st.key === 'attention'){
+          challengeMsg.textContent = 'Chut... presque là';
+        } else {
+          challengeMsg.textContent = 'Trop de bruit ! En pause...';
+        }
+        challengeCountdown.textContent = fmtTime(Math.max(0, challengeRemaining));
+        challengeCountdown.style.color = getComputedStyle(document.documentElement).getPropertyValue(st.color.match(/--[\w-]+/)[0]);
+        if(challengeRemaining <= 0){
+          completeChallenge();
+        }
+      }
+    }
+    lastTick = now;
+
+    if(Math.random() < 0.5){ // throttle history updates a bit
+      pushHistory(smoothedLevel);
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  async function toggleRunning(){
+    if(running){
+      running = false;
+      stopMic();
+      toggleBtn.textContent = '▶️ Démarrer';
+      toggleBtn.classList.remove('btn-stop');
+      toggleBtn.classList.add('btn-start');
+      statusWord.textContent = 'EN PAUSE';
+      statusSub.textContent = 'Appuie sur Démarrer';
+      levelNumber.textContent = '--';
+      if(silenceSeconds > 0) saveRecord();
+    } else {
+      const ok = await startMic();
+      if(!ok) return;
+      running = true;
+      lastTick = null;
+      toggleBtn.textContent = '⏸️ Arrêter';
+      toggleBtn.classList.remove('btn-start');
+      toggleBtn.classList.add('btn-stop');
+      rafId = requestAnimationFrame(tick);
+    }
+  }
+
+  async function calibrate(){
+    const wasRunning = running;
+    let ctx = audioCtx, an = analyser, arr = dataArray, m = mic;
+    let tempStarted = false;
+    if(!ctx || !an){
+      const ok = await startMic();
+      if(!ok) return;
+      ctx = audioCtx; an = analyser; arr = dataArray;
+      tempStarted = true;
+    }
+    statusWord.textContent = 'CALIBRAGE...';
+    statusSub.textContent = 'Silence pendant 3 secondes';
+    let samples = [];
+    const collect = () => {
+      an.getByteFrequencyData(arr);
+      let sum=0; for(let i=0;i<arr.length;i++) sum += arr[i]*arr[i];
+      samples.push(Math.sqrt(sum/arr.length));
+    };
+    const iv = setInterval(collect, 100);
+    setTimeout(()=>{
+      clearInterval(iv);
+      if(samples.length){
+        baseline = samples.reduce((a,b)=>a+b,0)/samples.length + 2;
+      }
+      statusWord.textContent = wasRunning ? 'CALME' : 'PRÊT';
+      statusSub.textContent = wasRunning ? 'Parfait pour travailler' : 'Réglé ! Appuie sur Démarrer';
+      if(tempStarted && !wasRunning){ stopMic(); }
+    }, 3000);
+  }
+
+  // ---------- UI wiring ----------
+  toggleBtn.addEventListener('click', toggleRunning);
+  el('calibrateBtn').addEventListener('click', calibrate);
+  el('micRetryBtn').addEventListener('click', async ()=>{ await toggleRunning(); });
+
+  el('settingsBtn').addEventListener('click', ()=> el('overlay').classList.add('open'));
+  el('closePanelBtn').addEventListener('click', ()=> el('overlay').classList.remove('open'));
+  el('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') el('overlay').classList.remove('open'); });
+
+  const sensSlider = el('sensSlider');
+  sensSlider.addEventListener('input', ()=>{ sensitivity = parseFloat(sensSlider.value); el('sensLabel').textContent = sensitivity.toFixed(1)+'x'; });
+  el('sensLabel').textContent = '1.0x';
+
+  const thAttSlider = el('thAttSlider');
+  thAttSlider.addEventListener('input', ()=>{
+    thAttention = parseInt(thAttSlider.value);
+    if(thAttention >= thBruit){ thBruit = thAttention+1; el('thBruitSlider').value = thBruit; el('thBruitLabel').textContent = thBruit; }
+    el('thAttLabel').textContent = thAttention;
+  });
+  el('thAttLabel').textContent = thAttention;
+
+  const thBruitSlider = el('thBruitSlider');
+  thBruitSlider.addEventListener('input', ()=>{
+    thBruit = parseInt(thBruitSlider.value);
+    if(thBruit <= thAttention){ thAttention = thBruit-1; el('thAttSlider').value = thAttention; el('thAttLabel').textContent = thAttention; }
+    el('thBruitLabel').textContent = thBruit;
+  });
+  el('thBruitLabel').textContent = thBruit;
+
+  const ptsSlider = el('pointsIntervalSlider');
+  ptsSlider.addEventListener('input', ()=>{
+    pointsInterval = parseInt(ptsSlider.value);
+    el('pointsIntervalLabel').textContent = (pointsInterval/60) + ' min';
+  });
+
+  const penaltySlider = el('penaltyIntervalSlider');
+  penaltySlider.addEventListener('input', ()=>{
+    penaltyInterval = parseInt(penaltySlider.value);
+    el('penaltyIntervalLabel').textContent = penaltyInterval + 's';
+  });
+
+  el('alarmToggle').addEventListener('change', (e)=>{ alarmEnabled = e.target.checked; });
+
+  const graceSlider = el('questionGraceSlider');
+  graceSlider.addEventListener('input', ()=>{
+    questionGraceDuration = parseInt(graceSlider.value);
+    el('questionGraceLabel').textContent = questionGraceDuration + 's';
+  });
+
+  el('teacherModeBtn').addEventListener('click', ()=>{
+    teacherModeActive = !teacherModeActive;
+    el('teacherModeBtn').classList.toggle('active-mode', teacherModeActive);
+    if(teacherModeActive) questionGraceUntil = 0;
+    updateProtectionBadge();
+  });
+
+  el('questionPauseBtn').addEventListener('click', ()=>{
+    if(teacherModeActive) return;
+    questionGraceUntil = performance.now() + questionGraceDuration*1000;
+    updateProtectionBadge();
+  });
+
+  el('resetBtn').addEventListener('click', async ()=>{
+    const cls = getCurrentClassObj();
+    points = 0; record = 0; silenceSeconds = 0; noiseSeconds = 0;
+    cls.points = 0; cls.record = 0; cls.challengesWon = 0;
+    pointsValue.textContent = '0 ⭐';
+    recordValue.textContent = '00:00';
+    timerValue.textContent = '00:00';
+    await saveData();
+  });
+
+  // ---------- Home menu ----------
+  el('logoMark').addEventListener('click', ()=> el('logoInput').click());
+  el('logoInput').addEventListener('change', (e)=>{
+    if(e.target.files && e.target.files[0]) handleLogoFile(e.target.files[0]);
+  });
+  el('menuToggle').addEventListener('click', ()=>{
+    renderClassSelect();
+    renderRecapTable();
+    renderNextRewardHint();
+    el('schoolInput').value = appData.school || '';
+    el('contactEmailInput').value = appData.contactEmail || '';
+    el('contactEmailDisplay').textContent = appData.contactEmail ? `Contact : ${appData.contactEmail}` : '';
+    el('classOverlay').classList.add('open');
+  });
+  el('homeLinkBtn').addEventListener('click', ()=> el('classOverlay').classList.remove('open'));
+  el('saveSchoolBtn').addEventListener('click', ()=>{
+    appData.school = el('schoolInput').value.trim();
+    renderClassBadge();
+    saveData();
+  });
+  el('saveEmailBtn').addEventListener('click', ()=>{
+    appData.contactEmail = el('contactEmailInput').value.trim();
+    el('contactEmailDisplay').textContent = appData.contactEmail ? `Contact : ${appData.contactEmail}` : '';
+    saveData();
+  });
+  el('closeClassBtn').addEventListener('click', ()=> el('classOverlay').classList.remove('open'));
+  el('classOverlay').addEventListener('click', (e)=>{ if(e.target.id==='classOverlay') el('classOverlay').classList.remove('open'); });
+  el('classSelect').addEventListener('change', (e)=> switchClass(e.target.value));
+  el('addClassBtn').addEventListener('click', ()=>{
+    addClass(el('newClassInput').value);
+    el('newClassInput').value = '';
+  });
+  el('newClassInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ addClass(el('newClassInput').value); el('newClassInput').value=''; }
+  });
+  el('openSettingsFromMenuBtn').addEventListener('click', ()=>{
+    el('classOverlay').classList.remove('open');
+    el('overlay').classList.add('open');
+  });
+
+  // ---------- Incident log ----------
+  el('logIncidentBtn').addEventListener('click', ()=>{
+    el('incidentNameInput').value = '';
+    el('incidentOverlay').classList.add('open');
+    setTimeout(()=> el('incidentNameInput').focus(), 100);
+  });
+  el('cancelIncidentBtn').addEventListener('click', ()=> el('incidentOverlay').classList.remove('open'));
+  el('incidentOverlay').addEventListener('click', (e)=>{ if(e.target.id==='incidentOverlay') el('incidentOverlay').classList.remove('open'); });
+  el('saveIncidentBtn').addEventListener('click', ()=>{
+    saveIncident(el('incidentNameInput').value);
+    el('incidentOverlay').classList.remove('open');
+  });
+  el('incidentNameInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      saveIncident(el('incidentNameInput').value);
+      el('incidentOverlay').classList.remove('open');
+    }
+  });
+
+  el('openIncidentLogBtn').addEventListener('click', ()=>{
+    el('classOverlay').classList.remove('open');
+    renderIncidentLog();
+    el('incidentLogOverlay').classList.add('open');
+  });
+  el('closeIncidentLogBtn').addEventListener('click', ()=> el('incidentLogOverlay').classList.remove('open'));
+  el('incidentLogOverlay').addEventListener('click', (e)=>{ if(e.target.id==='incidentLogOverlay') el('incidentLogOverlay').classList.remove('open'); });
+  el('clearIncidentsBtn').addEventListener('click', ()=>{
+    const cls = getCurrentClassObj();
+    cls.incidents = [];
+    saveData();
+    renderIncidentLog();
+  });
+
+  // ---------- Rewards catalogue ----------
+  el('openRewardsBtn').addEventListener('click', ()=>{
+    el('classOverlay').classList.remove('open');
+    renderRewardsTable();
+    el('rewardsOverlay').classList.add('open');
+  });
+  el('closeRewardsBtn').addEventListener('click', ()=> el('rewardsOverlay').classList.remove('open'));
+  el('rewardsOverlay').addEventListener('click', (e)=>{ if(e.target.id==='rewardsOverlay') el('rewardsOverlay').classList.remove('open'); });
+  el('addRewardBtn').addEventListener('click', ()=>{
+    const pts = parseInt(el('rewardPointsInput').value);
+    const label = el('rewardLabelInput').value.trim();
+    if(!pts || !label) return;
+    appData.rewards.push({points:pts, label});
+    saveData();
+    renderRewardsTable();
+    renderNextRewardHint();
+    el('rewardPointsInput').value = ''; el('rewardLabelInput').value = '';
+  });
+
+  // ---------- Backup / restore ----------
+  el('openBackupBtn').addEventListener('click', ()=>{
+    el('classOverlay').classList.remove('open');
+    el('backupOverlay').classList.add('open');
+  });
+  el('closeBackupBtn').addEventListener('click', ()=> el('backupOverlay').classList.remove('open'));
+  el('backupOverlay').addEventListener('click', (e)=>{ if(e.target.id==='backupOverlay') el('backupOverlay').classList.remove('open'); });
+  el('exportDataBtn').addEventListener('click', exportData);
+  el('importDataTriggerBtn').addEventListener('click', ()=> el('importDataInput').click());
+  el('importDataInput').addEventListener('change', (e)=>{
+    if(e.target.files && e.target.files[0]) importDataFromFile(e.target.files[0]);
+  });
+
+  // ---------- Weekly report ----------
+  el('openReportBtn').addEventListener('click', ()=>{
+    el('classOverlay').classList.remove('open');
+    buildWeeklyReport();
+    el('reportOverlay').classList.add('open');
+  });
+  el('closeReportBtn').addEventListener('click', ()=> el('reportOverlay').classList.remove('open'));
+  el('reportOverlay').addEventListener('click', (e)=>{ if(e.target.id==='reportOverlay') el('reportOverlay').classList.remove('open'); });
+  el('shareReportBtn').addEventListener('click', ()=>{
+    const text = el('reportText').textContent;
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  });
+
+  // ---------- Projector mode ----------
+  el('projectorModeBtn').addEventListener('click', ()=>{
+    el('classOverlay').classList.remove('open');
+    document.body.classList.add('projector');
+  });
+  el('exitProjectorBtn').addEventListener('click', ()=> document.body.classList.remove('projector'));
+
+  // ---------- Alarm style & language ----------
+  el('alarmStyleSelect').addEventListener('change', (e)=>{
+    appData.alarmStyle = e.target.value;
+    saveData();
+  });
+  el('languageToggle').addEventListener('change', (e)=>{
+    appData.language = e.target.checked ? 'ewe' : 'fr';
+    saveData();
+  });
+  el('saveEweBtn').addEventListener('click', ()=>{
+    appData.eweWords = {
+      calme: el('eweCalmeInput').value.trim(),
+      attention: el('eweAttentionInput').value.trim(),
+      bruit: el('eweBruitInput').value.trim(),
+      alarme: el('eweAlarmInput').value.trim()
+    };
+    saveData();
+  });
+
+  // ---------- Challenge mode ----------
+  el('challengeBtn').addEventListener('click', ()=>{
+    challengeSelectedMinutes = null;
+    document.querySelectorAll('#durationGrid button').forEach(b=>b.classList.remove('selected'));
+    el('challengeOverlay').classList.add('open');
+  });
+  el('cancelChallengeBtn').addEventListener('click', ()=> el('challengeOverlay').classList.remove('open'));
+  document.querySelectorAll('#durationGrid button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#durationGrid button').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      challengeSelectedMinutes = parseInt(btn.dataset.min);
+    });
+  });
+
+  async function launchChallenge(){
+    const minutes = challengeSelectedMinutes || 2;
+    el('challengeOverlay').classList.remove('open');
+    if(!running){
+      const ok = await startMic();
+      if(!ok) return;
+      running = true; lastTick = null;
+      challengeAutoStarted = true;
+      rafId = requestAnimationFrame(tick);
+    }
+    challengeActive = true;
+    challengeTotal = minutes*60;
+    challengeRemaining = minutes*60;
+    el('challengeClassLabel').textContent = appData.currentClass;
+    challengeCountdown.textContent = fmtTime(challengeRemaining);
+    challengeMsg.textContent = 'C\'est parti, silence total !';
+    challengeScreen.classList.add('open');
+  }
+  el('launchChallengeBtn').addEventListener('click', launchChallenge);
+
+  function endChallengeSession(){
+    if(challengeAutoStarted){
+      running = false;
+      stopMic();
+      toggleBtn.textContent = '▶️ Démarrer';
+      toggleBtn.classList.remove('btn-stop');
+      toggleBtn.classList.add('btn-start');
+      statusWord.textContent = 'EN PAUSE';
+      statusSub.textContent = 'Appuie sur Démarrer';
+      levelNumber.textContent = '--';
+      challengeAutoStarted = false;
+    }
+  }
+
+  el('abandonChallengeBtn').addEventListener('click', ()=>{
+    challengeActive = false;
+    challengeScreen.classList.remove('open');
+    endChallengeSession();
+  });
+
+  function completeChallenge(){
+    challengeActive = false;
+    challengeScreen.classList.remove('open');
+    const cls = getCurrentClassObj();
+    cls.points = (cls.points||0) + 5;
+    cls.challengesWon = (cls.challengesWon||0) + 1;
+    if(!cls.challengeLog) cls.challengeLog = [];
+    cls.challengeLog.push({timestamp: Date.now(), minutes: challengeTotal/60});
+    points = cls.points;
+    pointsValue.textContent = `${points} ⭐`;
+    saveData();
+    el('challengeSuccessDetail').textContent = `${appData.currentClass} a tenu ${fmtTime(challengeTotal)} de silence. +5 points !`;
+    challengeSuccess.classList.add('open');
+  }
+  el('challengeSuccessBtn').addEventListener('click', ()=>{
+    challengeSuccess.classList.remove('open');
+    endChallengeSession();
+  });
+
+  loadData();
+})();
+</script>
+</body>
+</html>
+
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
