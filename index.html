@@ -12,6 +12,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <style>
   :root{
     --calme:#008751;
@@ -437,14 +439,23 @@
   <div class="panel">
     <h2>Réglages</h2>
 
+    <div id="subscriptionBox" style="background:rgba(255,209,0,0.1); border:1px solid rgba(255,209,0,0.35); border-radius:14px; padding:14px; margin-bottom:16px;">
+      <p style="font-family:'Fredoka'; font-weight:600; font-size:13.5px;" id="subStatusText">💎 Plan gratuit</p>
+      <p style="color:var(--cream-dim); font-size:11.5px; margin-top:2px;" id="subDetailText">Classes illimitées, récompenses, rapports et plus — voir menu Abonnement.</p>
+      <div class="new-class-row" style="margin-top:10px;">
+        <input type="text" id="licenseCodeInput" placeholder="Code d'activation">
+        <button id="activateLicenseBtn">Activer</button>
+      </div>
+    </div>
+
     <label>Sensibilité du micro <span id="sensLabel"></span></label>
     <input type="range" id="sensSlider" min="0.5" max="3" step="0.1" value="1">
 
     <label>Seuil « Attention » (jaune) — pour <span id="thClassLabel1">cette classe</span> <span id="thAttLabel"></span></label>
-    <input type="range" id="thAttSlider" min="10" max="90" step="1" value="35">
+    <input type="range" id="thAttSlider" min="200" max="2500" step="50" value="1500">
 
     <label>Seuil « Trop bruyant » (rouge) — pour <span id="thClassLabel2">cette classe</span> <span id="thBruitLabel"></span></label>
-    <input type="range" id="thBruitSlider" min="20" max="100" step="1" value="65">
+    <input type="range" id="thBruitSlider" min="300" max="3000" step="50" value="2200">
 
     <label>Minutes de calme pour gagner 1 point (5 min minimum)</label>
     <input type="range" id="pointsIntervalSlider" min="300" max="1200" step="60" value="300">
@@ -494,6 +505,19 @@
     <input type="text" inputmode="numeric" maxlength="6" id="pinInput" placeholder="Ex: 1234 (laisser vide = pas de code)">
     <button class="reset-btn" id="savePinBtn" style="border-color:var(--calme); color:var(--calme); margin-top:8px;">Enregistrer le code</button>
 
+    <label style="margin-top:18px;">🔗 Tableau de bord à distance</label>
+    <p style="color:var(--cream-dim); font-size:11.5px; margin-top:-2px;" id="firebaseStatusText"></p>
+    <p style="color:var(--cream-dim); font-size:11px; margin-top:4px;">À remplir uniquement si tu as créé ton propre projet Firebase (voir guide). Laisse vide pour désactiver la surveillance à distance sur cette copie.</p>
+    <input type="text" id="fbApiKeyInput" placeholder="apiKey">
+    <input type="text" id="fbAuthDomainInput" placeholder="authDomain" style="margin-top:6px;">
+    <input type="text" id="fbDatabaseURLInput" placeholder="databaseURL" style="margin-top:6px;">
+    <input type="text" id="fbProjectIdInput" placeholder="projectId" style="margin-top:6px;">
+    <input type="text" id="fbStorageBucketInput" placeholder="storageBucket" style="margin-top:6px;">
+    <input type="text" id="fbSenderIdInput" placeholder="messagingSenderId" style="margin-top:6px;">
+    <input type="text" id="fbAppIdInput" placeholder="appId" style="margin-top:6px;">
+    <button class="reset-btn" id="saveFirebaseBtn" style="border-color:var(--calme); color:var(--calme); margin-top:8px;">Enregistrer et redémarrer</button>
+    <button class="reset-btn" id="disableFirebaseBtn" style="margin-top:6px;">Désactiver la surveillance à distance</button>
+
     <button class="reset-btn" id="resetBtn">Réinitialiser points et record</button>
     <button class="close-btn" id="closePanelBtn">Fermer</button>
   </div>
@@ -535,6 +559,8 @@
       <input type="text" id="newClassInput" placeholder="Nouvelle classe: 3e A...">
       <button id="addClassBtn">Ajouter</button>
     </div>
+    <button class="reset-btn" id="saveClassesBtn" style="border-color:var(--calme); color:var(--calme); margin-top:8px;">💾 Enregistrer les classes</button>
+    <p style="color:var(--cream-dim); font-size:11px; margin-top:4px;">Tes classes se sauvegardent déjà automatiquement sur ce téléphone — ce bouton confirme juste que tout est bien enregistré.</p>
 
     <label>Récapitulatif des classes</label>
     <div class="recap-wrap">
@@ -557,7 +583,7 @@
 
     <div style="margin-top:22px; padding-top:16px; border-top:1px solid rgba(244,239,230,0.1); text-align:center;">
       <p style="font-family:'Fredoka'; font-weight:600; font-size:13.5px;">AYALE Yaovi (Honyore) 🇹🇬</p>
-      <p style="color:var(--cream-dim); font-size:12px; margin-top:2px;">Enseignant SVT · Lycée Nyivémé, Kamina</p>
+      <p style="color:var(--cream-dim); font-size:12px; margin-top:2px;">Enseignant SVT · Lycée Nyivémé, Kpalimé</p>
       <p style="color:var(--cream-dim); font-size:12px; margin-top:6px;">WhatsApp 98 31 10 80</p>
       <div class="new-class-row" style="margin-top:10px;">
         <input type="email" id="contactEmailInput" placeholder="Ton email de contact">
@@ -676,6 +702,33 @@
   </div>
 </div>
 
+<!-- Premium upgrade prompt -->
+<div class="overlay" id="upgradeOverlay">
+  <div class="panel">
+    <h2>💎 Fonctionnalité Premium</h2>
+    <p style="color:var(--cream-dim); font-size:13.5px;" id="upgradeFeatureText">Cette fonctionnalité fait partie de l'abonnement Premium.</p>
+
+    <div style="display:flex; gap:10px; margin-top:14px;">
+      <div style="flex:1; background:rgba(244,239,230,0.06); border:1px solid rgba(244,239,230,0.12); border-radius:14px; padding:14px; text-align:center;">
+        <div style="font-family:'Fredoka'; font-weight:600; font-size:13px; color:var(--cream-dim);">Mensuel</div>
+        <div style="font-family:'Space Grotesk'; font-weight:700; font-size:20px; margin-top:4px;">3 500 F</div>
+        <div style="font-size:10.5px; color:var(--cream-dim);">par mois</div>
+      </div>
+      <div style="flex:1; background:rgba(0,168,94,0.12); border:1.5px solid var(--calme); border-radius:14px; padding:14px; text-align:center;">
+        <div style="font-family:'Fredoka'; font-weight:600; font-size:13px; color:var(--calme);">Annuel</div>
+        <div style="font-family:'Space Grotesk'; font-weight:700; font-size:20px; margin-top:4px;">30 000 F</div>
+        <div style="font-size:10.5px; color:var(--cream-dim);">Économise 12 000 F</div>
+      </div>
+    </div>
+
+    <p style="color:var(--cream-dim); font-size:12px; margin-top:12px;">Classes illimitées, récompenses, journal d'incidents, rapports PDF, classement, emploi du temps automatique, sauvegarde, verrouillage PIN, logo personnalisé et surveillance à distance.</p>
+
+    <button class="launch-challenge-btn" id="upgradeWhatsappBtn" style="background:var(--calme); margin-top:14px;">📲 Obtenir un code sur WhatsApp</button>
+    <button class="reset-btn" id="upgradeHaveCodeBtn">J'ai déjà un code</button>
+    <button class="close-btn" id="closeUpgradeBtn">Plus tard</button>
+  </div>
+</div>
+
 <!-- Generic notice -->
 <div class="overlay" id="noticeOverlay">
   <div class="panel">
@@ -765,13 +818,118 @@
 
 <script>
 (function(){
+  // ---------- Remote monitoring (Firebase) ----------
+  // Config par défaut (celle d'AYH) — chaque acheteur peut la remplacer par la sienne
+  // dans Réglages → Tableau de bord à distance, sans toucher au code.
+  const DEFAULT_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAkMtkGNsGqXq9j2NP2fkcYccyWOsBMJa4",
+    authDomain: "tam-tam-silence.firebaseapp.com",
+    databaseURL: "https://tam-tam-silence-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "tam-tam-silence",
+    storageBucket: "tam-tam-silence.firebasestorage.app",
+    messagingSenderId: "285330178275",
+    appId: "1:285330178275:web:3a2eed3f6cf5a4c3e685d6"
+  };
+
+  function loadFirebaseConfig(){
+    try{
+      const raw = localStorage.getItem('tamtam-firebase-config');
+      if(raw){
+        const parsed = JSON.parse(raw);
+        if(parsed && parsed.apiKey && parsed.databaseURL) return parsed;
+        if(parsed && parsed.disabled) return null; // explicitly disabled by this client
+      }
+    }catch(e){}
+    return DEFAULT_FIREBASE_CONFIG;
+  }
+
+  let db = null;
+
+  // ---------- Subscription / license ----------
+  const LICENSE_SECRET = 'AYH-TAMTAM-2026';
+  function simpleHash(str){
+    let h = 5381;
+    for(let i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
+    return h;
+  }
+  function computeSig(plan, expiry){
+    return (simpleHash(plan+'|'+expiry+'|'+LICENSE_SECRET) % 1679616).toString(36).toUpperCase().padStart(4,'0');
+  }
+  function validateLicenseCode(raw){
+    const code = (raw||'').trim().toUpperCase();
+    const parts = code.split('-');
+    if(parts.length !== 3) return null;
+    const [plan, expiry, sig] = parts;
+    if(plan !== 'MENSUEL' && plan !== 'ANNUEL') return null;
+    if(!/^\d{8}$/.test(expiry)) return null;
+    if(computeSig(plan, expiry) !== sig) return null;
+    const y = expiry.slice(0,4), m = expiry.slice(4,6), d = expiry.slice(6,8);
+    const expiresAt = new Date(`${y}-${m}-${d}T23:59:59`).getTime();
+    if(isNaN(expiresAt) || expiresAt < Date.now()) return null;
+    return { plan: plan.toLowerCase(), expiresAt, code };
+  }
+  function isPremium(){
+    return !!(appData.license && appData.license.plan !== 'free' && Date.now() < appData.license.expiresAt);
+  }
+  let pendingPremiumAction = null;
+  function requirePremium(featureText, action){
+    if(isPremium()){ action(); return; }
+    pendingPremiumAction = action;
+    el('upgradeFeatureText').textContent = featureText || 'Cette fonctionnalité fait partie de l\'abonnement Premium.';
+    el('upgradeOverlay').classList.add('open');
+  }
+  function renderSubscriptionStatus(){
+    const box = el('subStatusText'), detail = el('subDetailText');
+    if(isPremium()){
+      const d = new Date(appData.license.expiresAt);
+      box.textContent = `💎 Premium actif (${appData.license.plan === 'annuel' ? 'annuel' : 'mensuel'})`;
+      detail.textContent = `Valable jusqu'au ${d.toLocaleDateString('fr-FR')}.`;
+    } else {
+      box.textContent = '💎 Plan gratuit';
+      detail.textContent = 'Classes illimitées, récompenses, rapports et plus — active un code ci-dessous.';
+    }
+  }
+  const activeFirebaseConfig = loadFirebaseConfig();
+  if(activeFirebaseConfig){
+    try{
+      firebase.initializeApp(activeFirebaseConfig);
+      db = firebase.database();
+    }catch(e){ console.warn('Firebase indisponible', e); }
+  }
+
+  function slugify(str){
+    return (str || 'classe').toString()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[.#$\[\]\/]/g,'-')
+      .replace(/\s+/g,'-')
+      .trim() || 'classe';
+  }
+
+  let lastFirebasePush = 0;
+  function pushLiveStatus(level, st){
+    if(!db) return;
+    const now = performance.now();
+    if(now - lastFirebasePush < 3000) return;
+    lastFirebasePush = now;
+    const cls = getCurrentClassObj();
+    const key = slugify(appData.school) + '__' + slugify(appData.currentClass);
+    db.ref('live/' + key).set({
+      school: appData.school || '',
+      className: appData.currentClass,
+      level: Math.round(level),
+      state: st.key,
+      points: cls ? (cls.points||0) : 0,
+      updatedAt: Date.now()
+    }).catch(()=>{});
+  }
+
   // ---------- State ----------
   let audioCtx, analyser, dataArray, mic, rafId;
   let running = false;
   let smoothedLevel = 0;
   let baseline = 8; // ambient noise floor, adjustable via calibration
   let sensitivity = 1;
-  let thAttention = 35, thBruit = 65;
+  let thAttention = 1500, thBruit = 2200;
   let pointsInterval = 300;
   let silenceSeconds = 0, noiseSeconds = 0, points = 0, record = 0;
   let lastTick = null;
@@ -784,6 +942,8 @@
   let questionGraceUntil = 0;
   let questionGraceDuration = 30; // seconds
   let challengeActive = false, challengeRemaining = 0, challengeTotal = 0, challengeAutoStarted = false, challengeSelectedMinutes = null;
+  let incidentBtnVisibleUntil = 0;
+  const INCIDENT_BTN_GRACE_MS = 20000; // reste visible 20s après le dernier pic de bruit
   const HISTORY_LEN = 40;
 
   const el = id => document.getElementById(id);
@@ -905,8 +1065,8 @@
 
   // ---------- Per-class data ----------
   let appData = {
-    school:'', contactEmail:'', logo:'',
-    classes:[{name:'Classe 1', points:0, record:0, challengesWon:0, incidents:[], challengeLog:[], thAttention:35, thBruit:65}],
+    school:'', contactEmail:'yaovihonore98@gmail.com', logo:'',
+    classes:[{name:'Classe 1', points:0, record:0, challengesWon:0, incidents:[], challengeLog:[], thAttention:1500, thBruit:2200}],
     currentClass:'Classe 1',
     rewards:[{points:10, label:'5 minutes de pause'},{points:20, label:'Pas de devoir ce soir'},{points:40, label:'Musique libre en fin de cours'}],
     alarmStyle:'douce',
@@ -914,7 +1074,8 @@
     eweWords:{calme:'', attention:'', bruit:'', alarme:''},
     settingsPin:'',
     vibrationEnabled:true,
-    schedule:[]
+    schedule:[],
+    license:{plan:'free', expiresAt:0, code:''}
   };
 
   function getCurrentClassObj(){
@@ -925,9 +1086,9 @@
 
   async function loadData(){
     try{
-      const r = await window.storage.get('tamtam-data');
-      if(r){
-        const parsed = JSON.parse(r.value);
+      const raw = localStorage.getItem('tamtam-data');
+      if(raw){
+        const parsed = JSON.parse(raw);
         if(parsed && parsed.classes && parsed.classes.length) appData = parsed;
       }
     }catch(e){}
@@ -938,22 +1099,25 @@
     appData.classes.forEach(c=>{
       if(!c.incidents) c.incidents=[];
       if(!c.challengeLog) c.challengeLog=[];
-      if(typeof c.thAttention !== 'number') c.thAttention = 35;
-      if(typeof c.thBruit !== 'number') c.thBruit = 65;
+      if(typeof c.thAttention === 'number' && c.thAttention <= 100){ c.thAttention = 1500; c.thBruit = 2200; }
+      if(typeof c.thAttention !== 'number') c.thAttention = 1500;
+      if(typeof c.thBruit !== 'number') c.thBruit = 2200;
     });
     if(typeof appData.settingsPin !== 'string') appData.settingsPin = '';
     if(typeof appData.vibrationEnabled !== 'boolean') appData.vibrationEnabled = true;
     if(!Array.isArray(appData.schedule)) appData.schedule = [];
+    if(!appData.license || typeof appData.license !== 'object') appData.license = {plan:'free', expiresAt:0, code:''};
     refreshFromCurrentClass();
     renderClassBadge();
     renderClassSelect();
     renderRecapTable();
     renderLogo();
     renderNextRewardHint();
+    renderSubscriptionStatus();
     syncSettingsUI();
   }
   async function saveData(){
-    try{ await window.storage.set('tamtam-data', JSON.stringify(appData)); }catch(e){}
+    try{ localStorage.setItem('tamtam-data', JSON.stringify(appData)); }catch(e){}
   }
 
   function refreshFromCurrentClass(){
@@ -1452,12 +1616,25 @@
     el('eweAlarmInput').value = appData.eweWords.alarme || '';
     el('pinInput').value = '';
     el('pinStatusText').textContent = appData.settingsPin ? '🔒 Un code PIN est actif.' : 'Aucun code PIN défini.';
+
+    el('fbApiKeyInput').value = activeFirebaseConfig ? (activeFirebaseConfig.apiKey||'') : '';
+    el('fbAuthDomainInput').value = activeFirebaseConfig ? (activeFirebaseConfig.authDomain||'') : '';
+    el('fbDatabaseURLInput').value = activeFirebaseConfig ? (activeFirebaseConfig.databaseURL||'') : '';
+    el('fbProjectIdInput').value = activeFirebaseConfig ? (activeFirebaseConfig.projectId||'') : '';
+    el('fbStorageBucketInput').value = activeFirebaseConfig ? (activeFirebaseConfig.storageBucket||'') : '';
+    el('fbSenderIdInput').value = activeFirebaseConfig ? (activeFirebaseConfig.messagingSenderId||'') : '';
+    el('fbAppIdInput').value = activeFirebaseConfig ? (activeFirebaseConfig.appId||'') : '';
+    el('firebaseStatusText').textContent = db ? '🟢 Surveillance à distance active.' : '⚪ Désactivée sur cette copie.';
   }
   function addClass(name){
     name = name.trim();
     if(!name) return;
     if(appData.classes.some(c=>c.name.toLowerCase()===name.toLowerCase())) return;
-    appData.classes.push({name, points:0, record:0, challengesWon:0, incidents:[], challengeLog:[], thAttention:35, thBruit:65});
+    if(!isPremium() && appData.classes.length >= 1){
+      requirePremium("Le plan gratuit est limité à 1 classe. Passe en Premium pour des classes illimitées.", ()=> addClass(name));
+      return;
+    }
+    appData.classes.push({name, points:0, record:0, challengesWon:0, incidents:[], challengeLog:[], thAttention:1500, thBruit:2200});
     saveData();
     renderClassSelect();
     renderRecapTable();
@@ -1487,13 +1664,14 @@
     if(rafId) cancelAnimationFrame(rafId);
   }
 
+  const MAX_LEVEL = 3000; // échelle élargie pour laisser de la marge sur des classes bruyantes
   function computeLevel(){
     analyser.getByteFrequencyData(dataArray);
     let sum = 0;
     for(let i=0;i<dataArray.length;i++){ sum += dataArray[i]*dataArray[i]; }
     const rms = Math.sqrt(sum/dataArray.length);
-    let level = Math.max(0, (rms - baseline) * sensitivity * 1.6);
-    level = Math.min(100, level);
+    let level = Math.max(0, (rms - baseline) * sensitivity * 16);
+    level = Math.min(MAX_LEVEL, level);
     return level;
   }
 
@@ -1505,7 +1683,7 @@
     for(let i=0;i<bars.length;i++){
       if(i < offset){ bars[i].style.height='2px'; continue; }
       const v = history[i-offset];
-      bars[i].style.height = Math.max(2, (v/100)*34) + 'px';
+      bars[i].style.height = Math.max(2, (v/MAX_LEVEL)*34) + 'px';
       const st = stateFor(v);
       bars[i].style.background = getComputedStyle(document.documentElement).getPropertyValue(st.color.match(/--[\w-]+/)[0]);
     }
@@ -1519,6 +1697,7 @@
     const st = stateFor(smoothedLevel);
     setCssVar('--state-color', st.color);
     drumFace.setAttribute('fill', st.key==='calme' ? '#3b2a1a' : (st.key==='attention' ? '#4a3a1a' : '#4a1a1a'));
+    pushLiveStatus(smoothedLevel, st);
     let displayWord = st.word;
     if(appData.language === 'ewe' && appData.eweWords){
       const map = {calme: appData.eweWords.calme, attention: appData.eweWords.attention, bruit: appData.eweWords.bruit};
@@ -1529,12 +1708,12 @@
     levelNumber.textContent = Math.round(smoothedLevel);
     brandDot.style.background = st.color;
 
-    const offset = CIRC - (smoothedLevel/100) * CIRC;
+    const offset = CIRC - Math.min(1, smoothedLevel/MAX_LEVEL) * CIRC;
     arcFill.style.strokeDashoffset = offset;
     arcFill.style.stroke = getComputedStyle(document.documentElement).getPropertyValue(st.color.match(/--[\w-]+/)[0]);
 
     // subtle pulse on drum when loud
-    const scale = 1 + Math.min(0.06, (smoothedLevel/100)*0.08);
+    const scale = 1 + Math.min(0.06, (smoothedLevel/MAX_LEVEL)*0.08);
     document.querySelector('.drum-center').style.transform = `scale(${scale})`;
 
     // timer logic
@@ -1577,7 +1756,10 @@
       }
       timerValue.textContent = fmtTime(silenceSeconds);
       updateProtectionBadge();
-      el('logIncidentBtn').classList.toggle('show', st.key === 'bruit' && !isProtected());
+      if(st.key === 'bruit' && !isProtected()){
+        incidentBtnVisibleUntil = performance.now() + INCIDENT_BTN_GRACE_MS;
+      }
+      el('logIncidentBtn').classList.toggle('show', performance.now() < incidentBtnVisibleUntil);
 
       // ---- Challenge mode ----
       if(challengeActive){
@@ -1737,7 +1919,7 @@
   });
 
   // ---------- Home menu ----------
-  el('logoMark').addEventListener('click', ()=> el('logoInput').click());
+  el('logoMark').addEventListener('click', ()=> requirePremium('Le logo personnalisé fait partie de l\'abonnement Premium.', ()=> el('logoInput').click()));
   el('logoInput').addEventListener('change', (e)=>{
     if(e.target.files && e.target.files[0]) handleLogoFile(e.target.files[0]);
   });
@@ -1752,9 +1934,11 @@
   });
   el('homeLinkBtn').addEventListener('click', ()=> el('classOverlay').classList.remove('open'));
   el('saveSchoolBtn').addEventListener('click', ()=>{
-    appData.school = el('schoolInput').value.trim();
-    renderClassBadge();
-    saveData();
+    requirePremium('Le nom d\'établissement personnalisé fait partie de l\'abonnement Premium.', ()=>{
+      appData.school = el('schoolInput').value.trim();
+      renderClassBadge();
+      saveData();
+    });
   });
   el('saveEmailBtn').addEventListener('click', ()=>{
     appData.contactEmail = el('contactEmailInput').value.trim();
@@ -1771,10 +1955,15 @@
   el('newClassInput').addEventListener('keydown', (e)=>{
     if(e.key === 'Enter'){ addClass(el('newClassInput').value); el('newClassInput').value=''; }
   });
+  el('saveClassesBtn').addEventListener('click', ()=>{
+    saveData();
+    showNotice('Toutes tes classes sont enregistrées sur ce téléphone. Tu les retrouveras à ta prochaine ouverture de l\'appli.', 'Enregistré ✅');
+  });
   el('openSettingsFromMenuBtn').addEventListener('click', ()=> requestOpenSettings(true));
 
   // ---------- Incident log ----------
   el('logIncidentBtn').addEventListener('click', ()=>{
+    incidentBtnVisibleUntil = performance.now() + INCIDENT_BTN_GRACE_MS;
     el('incidentNameInput').value = '';
     el('incidentOverlay').classList.add('open');
     setTimeout(()=> el('incidentNameInput').focus(), 100);
@@ -1784,18 +1973,22 @@
   el('saveIncidentBtn').addEventListener('click', ()=>{
     saveIncident(el('incidentNameInput').value);
     el('incidentOverlay').classList.remove('open');
+    incidentBtnVisibleUntil = 0;
   });
   el('incidentNameInput').addEventListener('keydown', (e)=>{
     if(e.key === 'Enter'){
       saveIncident(el('incidentNameInput').value);
       el('incidentOverlay').classList.remove('open');
+      incidentBtnVisibleUntil = 0;
     }
   });
 
   el('openIncidentLogBtn').addEventListener('click', ()=>{
-    el('classOverlay').classList.remove('open');
-    renderIncidentLog();
-    el('incidentLogOverlay').classList.add('open');
+    requirePremium('Le journal d\'incidents fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      renderIncidentLog();
+      el('incidentLogOverlay').classList.add('open');
+    });
   });
   el('closeIncidentLogBtn').addEventListener('click', ()=> el('incidentLogOverlay').classList.remove('open'));
   el('backFromIncidentLogBtn').addEventListener('click', ()=>{
@@ -1813,9 +2006,11 @@
 
   // ---------- Rewards catalogue ----------
   el('openRewardsBtn').addEventListener('click', ()=>{
-    el('classOverlay').classList.remove('open');
-    renderRewardsTable();
-    el('rewardsOverlay').classList.add('open');
+    requirePremium('Le catalogue de récompenses fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      renderRewardsTable();
+      el('rewardsOverlay').classList.add('open');
+    });
   });
   el('closeRewardsBtn').addEventListener('click', ()=> el('rewardsOverlay').classList.remove('open'));
   // ---------- Rename / delete confirm / notice ----------
@@ -1850,8 +2045,10 @@
 
   // ---------- Backup / restore ----------
   el('openBackupBtn').addEventListener('click', ()=>{
-    el('classOverlay').classList.remove('open');
-    el('backupOverlay').classList.add('open');
+    requirePremium('La sauvegarde/restauration fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      el('backupOverlay').classList.add('open');
+    });
   });
   el('closeBackupBtn').addEventListener('click', ()=> el('backupOverlay').classList.remove('open'));
   el('backFromBackupBtn').addEventListener('click', ()=>{
@@ -1868,9 +2065,11 @@
 
   // ---------- Weekly report ----------
   el('openReportBtn').addEventListener('click', ()=>{
-    el('classOverlay').classList.remove('open');
-    buildWeeklyReport();
-    el('reportOverlay').classList.add('open');
+    requirePremium('Le rapport hebdomadaire (avec export PDF) fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      buildWeeklyReport();
+      el('reportOverlay').classList.add('open');
+    });
   });
   el('closeReportBtn').addEventListener('click', ()=> el('reportOverlay').classList.remove('open'));
   el('backFromReportBtn').addEventListener('click', ()=>{
@@ -1882,11 +2081,71 @@
 
   // ---------- PIN lock ----------
   el('savePinBtn').addEventListener('click', ()=>{
-    const val = el('pinInput').value.trim();
-    appData.settingsPin = val;
-    el('pinStatusText').textContent = val ? '🔒 Un code PIN est actif.' : 'Aucun code PIN défini.';
+    requirePremium('Le verrouillage PIN fait partie de l\'abonnement Premium.', ()=>{
+      const val = el('pinInput').value.trim();
+      appData.settingsPin = val;
+      el('pinStatusText').textContent = val ? '🔒 Un code PIN est actif.' : 'Aucun code PIN défini.';
+      saveData();
+      showNotice(val ? 'Code PIN enregistré.' : 'Code PIN retiré.', 'Terminé');
+    });
+  });
+
+  el('saveFirebaseBtn').addEventListener('click', ()=>{
+    requirePremium('La surveillance à distance (tableau de bord central) fait partie de l\'abonnement Premium.', ()=>{
+      const cfg = {
+        apiKey: el('fbApiKeyInput').value.trim(),
+        authDomain: el('fbAuthDomainInput').value.trim(),
+        databaseURL: el('fbDatabaseURLInput').value.trim(),
+        projectId: el('fbProjectIdInput').value.trim(),
+        storageBucket: el('fbStorageBucketInput').value.trim(),
+        messagingSenderId: el('fbSenderIdInput').value.trim(),
+        appId: el('fbAppIdInput').value.trim()
+      };
+      if(!cfg.apiKey || !cfg.databaseURL){
+        showNotice('Il manque au moins apiKey et databaseURL pour activer la surveillance à distance.', 'Configuration incomplète');
+        return;
+      }
+      try{ localStorage.setItem('tamtam-firebase-config', JSON.stringify(cfg)); }catch(e){}
+      showNotice("Configuration enregistrée. L'appli va redémarrer pour l'appliquer.", 'Terminé');
+      setTimeout(()=> location.reload(), 1200);
+    });
+  });
+
+  // ---------- Subscription activation ----------
+  el('activateLicenseBtn').addEventListener('click', ()=>{
+    const result = validateLicenseCode(el('licenseCodeInput').value);
+    if(!result){
+      showNotice("Ce code n'est pas valide ou a expiré. Vérifie-le ou contacte AYH sur WhatsApp (98 31 10 80).", 'Code invalide');
+      return;
+    }
+    appData.license = result;
     saveData();
-    showNotice(val ? 'Code PIN enregistré.' : 'Code PIN retiré.', 'Terminé');
+    renderSubscriptionStatus();
+    el('licenseCodeInput').value = '';
+    showNotice('Abonnement Premium activé, merci !', 'Bienvenue 💎');
+  });
+
+  el('closeUpgradeBtn').addEventListener('click', ()=>{
+    el('upgradeOverlay').classList.remove('open');
+    pendingPremiumAction = null;
+  });
+  el('upgradeOverlay').addEventListener('click', (e)=>{ if(e.target.id==='upgradeOverlay'){ el('upgradeOverlay').classList.remove('open'); pendingPremiumAction = null; } });
+  el('upgradeWhatsappBtn').addEventListener('click', ()=>{
+    const msg = "Bonjour, je suis intéressé(e) par l'abonnement Premium de Tam-Tam Silence.";
+    window.open(`https://wa.me/22898311080?text=${encodeURIComponent(msg)}`, '_blank');
+  });
+  el('upgradeHaveCodeBtn').addEventListener('click', ()=>{
+    el('upgradeOverlay').classList.remove('open');
+    pendingPremiumAction = null;
+    syncSettingsUI();
+    el('overlay').classList.add('open');
+    setTimeout(()=> el('licenseCodeInput').focus(), 150);
+  });
+
+  el('disableFirebaseBtn').addEventListener('click', ()=>{
+    try{ localStorage.setItem('tamtam-firebase-config', JSON.stringify({disabled:true})); }catch(e){}
+    showNotice("Surveillance à distance désactivée sur cette copie. L'appli va redémarrer.", 'Terminé');
+    setTimeout(()=> location.reload(), 1200);
   });
   el('pinGateConfirmBtn').addEventListener('click', ()=>{
     if(el('pinGateInput').value.trim() === appData.settingsPin){
@@ -1909,9 +2168,11 @@
 
   // ---------- Leaderboard ----------
   el('openLeaderboardBtn').addEventListener('click', ()=>{
-    el('classOverlay').classList.remove('open');
-    renderLeaderboard();
-    el('leaderboardOverlay').classList.add('open');
+    requirePremium('Le classement des classes fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      renderLeaderboard();
+      el('leaderboardOverlay').classList.add('open');
+    });
   });
   el('closeLeaderboardBtn').addEventListener('click', ()=> el('leaderboardOverlay').classList.remove('open'));
   el('leaderboardOverlay').addEventListener('click', (e)=>{ if(e.target.id==='leaderboardOverlay') el('leaderboardOverlay').classList.remove('open'); });
@@ -1923,9 +2184,11 @@
 
   // ---------- Schedule ----------
   el('openScheduleBtn').addEventListener('click', ()=>{
-    el('classOverlay').classList.remove('open');
-    renderScheduleTable();
-    el('scheduleOverlay').classList.add('open');
+    requirePremium('L\'emploi du temps automatique fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      renderScheduleTable();
+      el('scheduleOverlay').classList.add('open');
+    });
   });
   el('closeScheduleBtn').addEventListener('click', ()=> el('scheduleOverlay').classList.remove('open'));
   el('scheduleOverlay').addEventListener('click', (e)=>{ if(e.target.id==='scheduleOverlay') el('scheduleOverlay').classList.remove('open'); });
@@ -1995,72 +2258,3 @@
   });
 
   async function launchChallenge(){
-    const minutes = challengeSelectedMinutes || 2;
-    el('challengeOverlay').classList.remove('open');
-    if(!running){
-      const ok = await startMic();
-      if(!ok) return;
-      running = true; lastTick = null;
-      challengeAutoStarted = true;
-      rafId = requestAnimationFrame(tick);
-    }
-    challengeActive = true;
-    challengeTotal = minutes*60;
-    challengeRemaining = minutes*60;
-    el('challengeClassLabel').textContent = appData.currentClass;
-    challengeCountdown.textContent = fmtTime(challengeRemaining);
-    challengeMsg.textContent = 'C\'est parti, silence total !';
-    challengeScreen.classList.add('open');
-  }
-  el('launchChallengeBtn').addEventListener('click', launchChallenge);
-
-  function endChallengeSession(){
-    if(challengeAutoStarted){
-      running = false;
-      stopMic();
-      toggleBtn.textContent = '▶️ Démarrer';
-      toggleBtn.classList.remove('btn-stop');
-      toggleBtn.classList.add('btn-start');
-      statusWord.textContent = 'EN PAUSE';
-      statusSub.textContent = 'Appuie sur Démarrer';
-      levelNumber.textContent = '--';
-      challengeAutoStarted = false;
-    }
-  }
-
-  el('abandonChallengeBtn').addEventListener('click', ()=>{
-    challengeActive = false;
-    challengeScreen.classList.remove('open');
-    endChallengeSession();
-  });
-
-  function completeChallenge(){
-    challengeActive = false;
-    challengeScreen.classList.remove('open');
-    const cls = getCurrentClassObj();
-    cls.points = (cls.points||0) + 5;
-    cls.challengesWon = (cls.challengesWon||0) + 1;
-    if(!cls.challengeLog) cls.challengeLog = [];
-    cls.challengeLog.push({timestamp: Date.now(), minutes: challengeTotal/60});
-    points = cls.points;
-    pointsValue.textContent = `${points} ⭐`;
-    saveData();
-    el('challengeSuccessDetail').textContent = `${appData.currentClass} a tenu ${fmtTime(challengeTotal)} de silence. +5 points !`;
-    challengeSuccess.classList.add('open');
-  }
-  el('challengeSuccessBtn').addEventListener('click', ()=>{
-    challengeSuccess.classList.remove('open');
-    endChallengeSession();
-  });
-
-  loadData();
-})();
-
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-  });
-}
-</script>
-</body>
-</html>
