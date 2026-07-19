@@ -1,0 +1,3913 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tam-Tam Silence — Moniteur de bruit</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1c140d">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --calme:#008751;
+    --attention:#FFD100;
+    --bruit:#D21034;
+    --wood:#241a12;
+    --wood-light:#3b2a1a;
+    --cream:#F4EFE6;
+    --cream-dim:#cfc6b4;
+    --state-color: var(--calme);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--wood);
+    color:var(--cream);
+    font-family:'Fredoka',sans-serif;
+    overflow-x:hidden; overflow-y:auto;
+    touch-action:manipulation;
+  }
+  body{
+    display:flex; flex-direction:column;
+    min-height:100vh; min-height:100dvh;
+    transition:background 0.6s ease;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.05), transparent 60%),
+      var(--wood);
+  }
+
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px 6px;
+    flex-shrink:0;
+  }
+  .brand{
+    display:flex; align-items:center; gap:8px;
+    font-size:15px; font-weight:600; letter-spacing:0.5px;
+    color:var(--cream-dim);
+  }
+  .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--state-color); transition:background 0.4s;}
+  .icon-btn{
+    background:var(--wood-light); border:1px solid rgba(244,239,230,0.15);
+    color:var(--cream); width:38px; height:38px; border-radius:12px;
+    font-size:18px; display:flex; align-items:center; justify-content:center;
+  }
+
+  main{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:4px 16px; min-height:0;
+  }
+
+  /* --- Drum gauge --- */
+  .drum-wrap{
+    position:relative;
+    width:min(58vw, 260px); height:min(58vw, 260px);
+    flex-shrink:1;
+  }
+  svg.drum{width:100%; height:100%; display:block;}
+  .drum-face{
+    transition: fill 0.5s ease;
+  }
+  .lacing line{
+    stroke:#a9895f; stroke-width:2; opacity:0.55;
+  }
+  .arc-bg{ fill:none; stroke:rgba(255,255,255,0.08); stroke-width:14; }
+  .arc-fill{
+    fill:none; stroke-width:14; stroke-linecap:round;
+    transition: stroke-dashoffset 0.15s linear, stroke 0.4s ease;
+  }
+  .drum-center{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    transition:transform 0.15s ease;
+  }
+  .status-word{
+    font-size:clamp(20px,5.5vw,30px); font-weight:700; letter-spacing:0.5px;
+    color:var(--state-color); transition:color 0.4s ease;
+    text-shadow:0 2px 10px rgba(0,0,0,0.4);
+  }
+  .status-sub{
+    font-size:13px; color:var(--cream-dim); margin-top:2px; font-weight:500;
+  }
+  .level-number{
+    font-family:'Space Grotesk',monospace; font-size:clamp(38px,10vw,58px); font-weight:700;
+    line-height:1; margin-top:6px;
+  }
+
+  /* --- Stats row --- */
+  .stats{
+    display:flex; gap:10px; width:100%; max-width:420px; margin-top:18px;
+  }
+  .stat-card{
+    flex:1; background:rgba(244,239,230,0.06); border:1px solid rgba(244,239,230,0.12);
+    border-radius:14px; padding:10px 8px; text-align:center;
+  }
+  .stat-label{font-size:11px; color:var(--cream-dim); text-transform:uppercase; letter-spacing:0.6px;}
+  .stat-value{font-family:'Space Grotesk',monospace; font-size:20px; font-weight:700; margin-top:2px;}
+  .stat-value.timer{color:var(--calme);}
+  .stat-value.points{color:#FFD100;}
+
+  /* --- History strip --- */
+  .history{
+    width:100%; max-width:420px; height:34px; margin-top:14px;
+    display:flex; align-items:flex-end; gap:2px;
+    background:rgba(0,0,0,0.2); border-radius:8px; padding:3px;
+  }
+  .history .bar{
+    flex:1; min-width:2px; border-radius:2px 2px 0 0;
+    background:var(--calme); transition:height 0.15s linear, background 0.15s linear;
+  }
+
+  footer{
+    flex-shrink:0; padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+    display:flex; gap:10px; max-width:420px; margin:0 auto; width:100%;
+  }
+  button.main-btn{
+    flex:1; border:none; border-radius:16px; padding:15px 10px;
+    font-family:'Fredoka',sans-serif; font-weight:600; font-size:16px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-start{background:var(--calme); color:white;}
+  .btn-stop{background:var(--bruit); color:white;}
+  .btn-secondary{
+    background:var(--wood-light); color:var(--cream);
+    border:1px solid rgba(244,239,230,0.15) !important;
+    flex:0 0 auto; width:52px;
+  }
+  .footer-row2{
+    flex-shrink:0; padding:0 16px calc(14px + env(safe-area-inset-bottom));
+    display:flex; gap:10px; max-width:420px; margin:0 auto; width:100%;
+  }
+  .footer-row2 .main-btn{flex:1; width:auto;}
+  .btn-secondary.active-mode{
+    background:var(--attention); color:#241a12; border-color:var(--attention) !important;
+  }
+
+  .protection-badge{
+    display:none; align-items:center; gap:8px;
+    background:rgba(255,209,0,0.14); border:1px solid rgba(255,209,0,0.4);
+    color:var(--attention); font-family:'Fredoka'; font-weight:600; font-size:13px;
+    padding:8px 14px; border-radius:100px; margin-bottom:14px;
+  }
+  .protection-badge.show{display:flex;}
+
+  .lesson-banner{
+    width:100%; max-width:420px; margin-bottom:14px;
+    background:var(--wood-light); border:1.5px solid var(--calme); border-radius:14px;
+    padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .lesson-banner span{
+    font-family:'Fredoka'; font-weight:700; font-size:15px; color:var(--cream);
+    line-height:1.3;
+  }
+  .lesson-banner button{
+    background:none; border:none; color:var(--cream-dim); font-size:15px; flex-shrink:0; padding:2px 4px;
+  }
+
+  .incident-btn{
+    display:none; align-items:center; gap:8px;
+    background:var(--bruit); color:white; border:none;
+    font-family:'Fredoka'; font-weight:600; font-size:13.5px;
+    padding:10px 18px; border-radius:100px; margin-top:14px;
+  }
+  .incident-btn.show{display:flex;}
+
+  .incident-quick input{
+    width:100%; background:rgba(0,0,0,0.25); border:1px solid rgba(244,239,230,0.2);
+    border-radius:10px; padding:13px 12px; color:var(--cream); font-family:'Fredoka'; font-size:15px;
+    margin-top:6px;
+  }
+  .incident-log-wrap{
+    margin-top:6px; border:1px solid rgba(244,239,230,0.1); border-radius:14px;
+    overflow:hidden; max-height:260px; overflow-y:auto;
+  }
+  table.incident-table{width:100%; border-collapse:collapse;}
+  table.incident-table thead th{
+    position:sticky; top:0; background:var(--wood-light);
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.4px;
+    color:var(--cream-dim); padding:9px 10px; font-weight:600;
+  }
+  table.incident-table tbody td{
+    padding:10px; font-size:13.5px; border-top:1px solid rgba(244,239,230,0.07);
+  }
+  table.incident-table td.num{font-family:'Space Grotesk',monospace; font-weight:700; color:var(--bruit);}
+  .incident-empty{color:var(--cream-dim); font-size:13px; text-align:center; padding:18px 0;}
+
+  .journal-entry-card{
+    background:rgba(244,239,230,0.06); border:1px solid rgba(244,239,230,0.1);
+    border-radius:12px; padding:12px 14px; margin-bottom:8px;
+  }
+  .journal-entry-card .je-top{font-family:'Fredoka'; font-weight:600; font-size:13.5px;}
+  .journal-entry-card .je-meta{font-size:11.5px; color:var(--cream-dim); margin-top:3px;}
+  .journal-entry-card .je-notes{font-size:12px; color:var(--cream); margin-top:6px; font-style:italic; white-space:pre-wrap;}
+  .journal-entry-card .je-actions{display:flex; gap:8px; margin-top:8px;}
+  .journal-entry-card .je-actions button{
+    background:none; border:1px solid rgba(244,239,230,0.15); border-radius:8px;
+    color:var(--cream-dim); font-size:12px; padding:5px 10px;
+  }
+
+  /* --- Projector mode --- */
+  body.projector header, body.projector footer, body.projector .footer-row2,
+  body.projector .stats, body.projector .history{ display:none !important; }
+  body.projector .drum-wrap{ width:min(78vw, 480px); height:min(78vw, 480px); }
+  body.projector .status-word{ font-size:clamp(28px,7vw,44px); }
+  body.projector .level-number{ font-size:clamp(50px,14vw,90px); }
+  .exit-projector-btn{
+    display:none; position:fixed; top:16px; right:16px; z-index:60;
+    width:40px; height:40px; border-radius:50%; border:1px solid rgba(244,239,230,0.25);
+    background:rgba(0,0,0,0.35); color:var(--cream); font-size:16px;
+  }
+  body.projector .exit-projector-btn{ display:flex; align-items:center; justify-content:center; }
+
+  /* --- Settings panel --- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.55);
+    display:none; align-items:flex-end; justify-content:center; z-index:20;
+  }
+  .overlay.open{display:flex;}
+  .panel{
+    background:var(--wood-light); width:100%; max-width:460px;
+    border-radius:22px 22px 0 0; padding:20px 20px calc(20px + env(safe-area-inset-bottom));
+    max-height:82vh; overflow-y:auto;
+  }
+  .panel h2{margin:0 0 14px; font-size:19px;}
+  .panel label{display:block; font-size:13px; color:var(--cream-dim); margin:14px 0 6px;}
+  .panel input[type=range]{width:100%; accent-color:var(--calme);}
+  .panel .row{display:flex; justify-content:space-between; font-size:13px; color:var(--cream-dim);}
+  .panel .close-btn{
+    margin-top:18px; width:100%; padding:13px; border:none; border-radius:14px;
+    background:var(--calme); color:white; font-family:'Fredoka'; font-weight:600; font-size:15px;
+  }
+  .panel .reset-btn{
+    margin-top:10px; width:100%; padding:13px; border:1px solid rgba(244,239,230,0.2);
+    border-radius:14px; background:transparent; color:var(--cream-dim); font-family:'Fredoka'; font-size:14px;
+  }
+  .mic-msg{
+    position:fixed; inset:0; background:var(--wood); z-index:30;
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    padding:30px; text-align:center;
+  }
+  .mic-msg.open{display:flex;}
+  .mic-msg .emoji{font-size:52px; margin-bottom:14px;}
+  .mic-msg h3{margin:0 0 10px; font-size:19px;}
+  .mic-msg p{color:var(--cream-dim); font-size:14px; line-height:1.5; max-width:320px;}
+  .mic-msg button{
+    margin-top:20px; padding:13px 28px; border:none; border-radius:14px;
+    background:var(--calme); color:white; font-family:'Fredoka'; font-weight:600; font-size:15px;
+  }
+
+  /* --- Hamburger + current class label --- */
+  .menu-toggle{
+    background:var(--wood-light); border:1px solid rgba(244,239,230,0.15);
+    color:var(--cream); width:38px; height:38px; border-radius:12px;
+    font-size:17px; display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .header-left{display:flex; align-items:center; gap:10px; min-width:0;}
+  .current-class-label{
+    font-size:12.5px; color:var(--cream-dim); font-weight:600;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .digital-clock{
+    font-family:'Space Grotesk',monospace; font-size:13px; font-weight:700;
+    color:var(--cream-dim); letter-spacing:0.5px;
+  }
+  .class-timer-pill{
+    font-family:'Space Grotesk',monospace; font-size:12.5px; font-weight:700;
+    color:var(--attention); background:rgba(255,209,0,0.12);
+    border:1px solid rgba(255,209,0,0.35); border-radius:100px;
+    padding:5px 10px; display:flex; align-items:center; gap:5px;
+  }
+  .class-timer-pill.ending{ color:var(--bruit); background:rgba(212,16,52,0.14); border-color:rgba(212,16,52,0.4); }
+
+  /* --- Home menu panel --- */
+  .menu-logo-row{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+  .menu-logo-mark{
+    width:40px; height:40px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #4a3420, var(--wood-light));
+    border:1.5px solid var(--calme);
+    display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;
+    position:relative; overflow:hidden; cursor:pointer;
+    background-size:cover; background-position:center;
+  }
+  .menu-logo-mark::after{
+    content:'✏️'; position:absolute; bottom:-2px; right:-2px;
+    background:var(--calme); border-radius:50%; width:16px; height:16px;
+    font-size:9px; display:flex; align-items:center; justify-content:center;
+  }
+  .menu-logo-text{font-family:'Fredoka'; font-weight:600; font-size:16px; line-height:1.2;}
+  .menu-logo-text small{display:block; font-weight:500; font-size:11px; color:var(--cream-dim);}
+  .menu-link{
+    display:flex; align-items:center; gap:10px; width:100%;
+    background:rgba(244,239,230,0.06); border:1px solid rgba(244,239,230,0.1);
+    color:var(--cream); border-radius:12px; padding:13px 14px; margin-bottom:10px;
+    font-family:'Fredoka'; font-weight:600; font-size:14.5px;
+  }
+  select.class-select{
+    width:100%; background:rgba(0,0,0,0.25); border:1px solid rgba(244,239,230,0.2);
+    color:var(--cream); border-radius:10px; padding:12px 12px; font-family:'Fredoka'; font-size:14px;
+    margin-top:6px; -webkit-appearance:none; appearance:none;
+  }
+  .recap-wrap{
+    margin-top:16px; border:1px solid rgba(244,239,230,0.1); border-radius:14px;
+    overflow:hidden; max-height:220px; overflow-y:auto;
+  }
+  table.recap{width:100%; border-collapse:collapse;}
+  table.recap thead th{
+    position:sticky; top:0; background:var(--wood-light);
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.4px;
+    color:var(--cream-dim); padding:9px 10px; font-weight:600;
+  }
+  table.recap tbody td{
+    padding:10px; font-size:13px; border-top:1px solid rgba(244,239,230,0.07);
+  }
+  table.recap tbody tr.active-row td:first-child{color:var(--calme); font-weight:700;}
+  table.recap td.num{font-family:'Space Grotesk',monospace; font-weight:600;}
+
+  table.staff-grid{ border-collapse:collapse; }
+  table.staff-grid th, table.staff-grid td{
+    border:1px solid rgba(244,239,230,0.18); padding:7px 8px; font-size:11.5px; vertical-align:top;
+  }
+  table.staff-grid thead th{ border-bottom:1.5px solid rgba(244,239,230,0.3); }
+  table.staff-grid tr.break-row td{
+    background:rgba(255,209,0,0.08); color:var(--attention); font-weight:700;
+    text-align:center; font-family:'Fredoka';
+  }
+  table.staff-grid td.period-label{ font-family:'Space Grotesk'; font-weight:700; text-align:center; }
+  table.staff-grid td.session-line{ display:block; padding:2px 0; }
+
+  .day-checks{
+    display:flex; gap:8px; flex-wrap:wrap; background:rgba(244,239,230,0.05);
+    border:1px solid rgba(244,239,230,0.1); border-radius:10px; padding:8px 10px;
+  }
+  .day-checks label{
+    display:flex; align-items:center; gap:4px; font-size:12px; color:var(--cream-dim); font-family:'Fredoka';
+  }
+  .day-checks input[type=checkbox]{ accent-color:var(--calme); width:15px; height:15px; }
+
+  /* --- Class badge --- */
+  .class-badge{
+    background:var(--wood-light); border:1px solid rgba(244,239,230,0.15);
+    color:var(--cream); padding:8px 12px; border-radius:12px;
+    font-family:'Fredoka'; font-size:13px; font-weight:600;
+    display:flex; align-items:center; gap:6px; max-width:150px;
+  }
+  .class-badge span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  /* --- Class list / ranking --- */
+  .class-list{list-style:none; margin:0; padding:0;}
+  .class-list li{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:11px 12px; border-radius:12px; margin-bottom:8px;
+    background:rgba(244,239,230,0.06); border:1px solid rgba(244,239,230,0.1);
+  }
+  .class-list li.active{border-color:var(--calme); background:rgba(0,135,81,0.15);}
+  .class-list .cl-name{font-weight:600; font-size:14px;}
+  .class-list .cl-stats{font-size:11px; color:var(--cream-dim); margin-top:2px;}
+  .class-list .cl-select{
+    background:var(--calme); color:white; border:none; border-radius:10px;
+    padding:7px 12px; font-family:'Fredoka'; font-weight:600; font-size:12px;
+  }
+  .class-list li.active .cl-select{background:transparent; color:var(--calme); border:1px solid var(--calme);}
+  .new-class-row{display:flex; gap:8px; margin-top:12px;}
+  .new-class-row input{
+    flex:1; background:rgba(0,0,0,0.25); border:1px solid rgba(244,239,230,0.2);
+    border-radius:10px; padding:11px 12px; color:var(--cream); font-family:'Fredoka'; font-size:14px;
+  }
+  .new-class-row button{
+    background:var(--attention); color:#241a12; border:none; border-radius:10px;
+    padding:0 16px; font-family:'Fredoka'; font-weight:700; font-size:14px;
+  }
+
+  /* --- Challenge duration picker --- */
+  .duration-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:8px;}
+  .duration-grid button{
+    padding:14px 6px; border-radius:14px; border:1px solid rgba(244,239,230,0.18);
+    background:rgba(244,239,230,0.06); color:var(--cream); font-family:'Space Grotesk'; font-weight:700; font-size:15px;
+  }
+  .duration-grid button.selected{background:var(--attention); color:#241a12; border-color:var(--attention);}
+  .launch-challenge-btn{
+    margin-top:18px; width:100%; padding:14px; border:none; border-radius:14px;
+    background:var(--bruit); color:white; font-family:'Fredoka'; font-weight:700; font-size:16px;
+  }
+
+  /* --- Challenge run screen --- */
+  .challenge-screen{
+    position:fixed; inset:0; z-index:40; display:none; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:30px;
+    background:var(--wood); transition:background 0.5s ease;
+  }
+  .challenge-screen.open{display:flex;}
+  .challenge-screen .label{font-size:14px; color:var(--cream-dim); letter-spacing:1px; text-transform:uppercase;}
+  .challenge-screen .countdown{
+    font-family:'Space Grotesk',monospace; font-weight:700; font-size:clamp(56px,20vw,110px);
+    line-height:1; margin:14px 0; color:var(--calme); transition:color 0.4s ease;
+  }
+  .challenge-screen .msg{font-size:16px; color:var(--cream); min-height:24px; font-weight:600;}
+  .challenge-screen .abandon-btn{
+    margin-top:34px; background:transparent; border:1px solid rgba(244,239,230,0.25);
+    color:var(--cream-dim); padding:11px 22px; border-radius:12px; font-family:'Fredoka'; font-size:14px;
+  }
+  .challenge-success{
+    position:fixed; inset:0; z-index:41; display:none; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:30px;
+    background:rgba(0,135,81,0.97);
+  }
+  .challenge-success.open{display:flex;}
+  .challenge-success .emoji{font-size:64px; margin-bottom:10px;}
+  .challenge-success h2{margin:0 0 6px; font-size:24px;}
+  .challenge-success p{color:rgba(255,255,255,0.85); font-size:14px;}
+  .challenge-success button{
+    margin-top:24px; background:white; color:var(--calme); border:none; border-radius:14px;
+    padding:13px 28px; font-family:'Fredoka'; font-weight:700; font-size:15px;
+  }
+</style>
+</head>
+<body>
+
+<button class="exit-projector-btn" id="exitProjectorBtn">✕</button>
+
+<header>
+  <div class="header-left">
+    <button class="menu-toggle" id="menuToggle">☰</button>
+    <span class="current-class-label" id="currentClassLabel">Classe 1</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <span class="digital-clock" id="digitalClock">--:--:--</span>
+    <span class="class-timer-pill" id="classTimerPill" style="display:none;"></span>
+    <span class="dot" id="brandDot" style="width:8px;height:8px;border-radius:50%;background:var(--calme);"></span>
+    <button class="icon-btn" id="settingsBtn">⚙️</button>
+  </div>
+</header>
+
+<main>
+  <div class="lesson-banner" id="lessonBanner" style="display:none;">
+    <span id="lessonBannerText"></span>
+    <button id="lessonBannerClose">✕</button>
+  </div>
+  <div class="protection-badge" id="protectionBadge"></div>
+  <div class="drum-wrap">
+    <svg class="drum" viewBox="0 0 200 200">
+      <g class="lacing" id="lacing"></g>
+      <circle class="drum-face" id="drumFace" cx="100" cy="100" r="70" fill="#3b2a1a" stroke="rgba(0,0,0,0.3)" stroke-width="2"/>
+      <circle class="arc-bg" cx="100" cy="100" r="86"/>
+      <circle class="arc-fill" id="arcFill" cx="100" cy="100" r="86"
+        transform="rotate(-90 100 100)"/>
+    </svg>
+    <div class="drum-center">
+      <div class="status-word" id="statusWord">PRÊT</div>
+      <div class="status-sub" id="statusSub">Appuie sur Démarrer</div>
+      <div class="level-number" id="levelNumber">--</div>
+    </div>
+  </div>
+
+  <button class="incident-btn" id="logIncidentBtn">🚩 Noter qui parle</button>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Silence</div>
+      <div class="stat-value timer" id="timerValue">00:00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Record</div>
+      <div class="stat-value" id="recordValue">00:00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Points</div>
+      <div class="stat-value points" id="pointsValue">0 ⭐</div>
+    </div>
+  </div>
+
+  <div class="history" id="history"></div>
+</main>
+
+<footer>
+  <button class="main-btn btn-start" id="toggleBtn">▶️ Démarrer</button>
+</footer>
+<div class="footer-row2">
+  <button class="main-btn btn-secondary" id="calibrateBtn">🎯</button>
+  <button class="main-btn btn-secondary" id="challengeBtn">🏆</button>
+  <button class="main-btn btn-secondary" id="teacherModeBtn">🎤</button>
+  <button class="main-btn btn-secondary" id="questionPauseBtn">🙋</button>
+</div>
+
+<!-- Settings panel -->
+<div class="overlay" id="overlay">
+  <div class="panel">
+    <h2>Réglages</h2>
+
+    <div id="subscriptionBox" style="background:rgba(255,209,0,0.1); border:1px solid rgba(255,209,0,0.35); border-radius:14px; padding:14px; margin-bottom:16px;">
+      <p style="font-family:'Fredoka'; font-weight:600; font-size:13.5px;" id="subStatusText">💎 Plan gratuit</p>
+      <p style="color:var(--cream-dim); font-size:11.5px; margin-top:2px;" id="subDetailText">Classes illimitées, récompenses, rapports et plus — voir menu Abonnement.</p>
+      <div class="new-class-row" style="margin-top:10px;">
+        <input type="text" id="licenseCodeInput" placeholder="Code d'activation">
+        <button id="activateLicenseBtn">Activer</button>
+      </div>
+    </div>
+
+    <label>Sensibilité du micro <span id="sensLabel"></span></label>
+    <input type="range" id="sensSlider" min="0.5" max="3" step="0.1" value="1">
+
+    <label>Seuil « Attention » (jaune) — pour <span id="thClassLabel1">cette classe</span> <span id="thAttLabel"></span></label>
+    <input type="range" id="thAttSlider" min="110" max="12500" step="100" value="7000">
+
+    <label>Seuil « Trop bruyant » (rouge) — pour <span id="thClassLabel2">cette classe</span> <span id="thBruitLabel"></span></label>
+    <input type="range" id="thBruitSlider" min="120" max="13000" step="100" value="10000">
+
+    <label>Minutes de calme pour gagner 1 point (5 min minimum)</label>
+    <input type="range" id="pointsIntervalSlider" min="300" max="1200" step="60" value="300">
+    <div class="row"><span>5 min</span><span id="pointsIntervalLabel">5 min</span><span>20 min</span></div>
+
+    <label>Secondes de bruit avant de perdre 1 point</label>
+    <input type="range" id="penaltyIntervalSlider" min="10" max="120" step="10" value="30">
+    <div class="row"><span>10s</span><span id="penaltyIntervalLabel">30s</span><span>120s</span></div>
+
+    <label style="display:flex; align-items:center; justify-content:space-between;">
+      🔊 Alarme vocale si trop bruyant
+      <input type="checkbox" id="alarmToggle" checked style="width:20px; height:20px; accent-color:var(--calme);">
+    </label>
+
+    <label>Style de l'alarme</label>
+    <select class="class-select" id="alarmStyleSelect">
+      <option value="douce">🎙️ Voix douce</option>
+      <option value="stricte">📢 Voix stricte</option>
+      <option value="clochette">🔔 Clochette (sans voix)</option>
+    </select>
+
+    <label>Durée de la pause question 🙋 <span id="questionGraceLabel">30s</span></label>
+    <input type="range" id="questionGraceSlider" min="10" max="60" step="5" value="30">
+
+    <label style="display:flex; align-items:center; justify-content:space-between; margin-top:18px;">
+      🇹🇬 Afficher en éwé (si rempli ci-dessous)
+      <input type="checkbox" id="languageToggle" style="width:20px; height:20px; accent-color:var(--calme);">
+    </label>
+    <label>Mot pour « calme »</label>
+    <input type="text" id="eweCalmeInput" placeholder="Ex: Fefe">
+    <label>Mot pour « attention »</label>
+    <input type="text" id="eweAttentionInput" placeholder="Mot en éwé">
+    <label>Mot pour « trop bruyant »</label>
+    <input type="text" id="eweBruitInput" placeholder="Mot en éwé">
+    <label>Phrase d'alarme parlée</label>
+    <input type="text" id="eweAlarmInput" placeholder="Phrase en éwé">
+    <p style="color:var(--cream-dim); font-size:11.5px; margin-top:6px;">Tu connais mieux l'éwé que moi — remplis ces mots toi-même, l'appli les utilisera automatiquement.</p>
+    <button class="reset-btn" id="saveEweBtn" style="border-color:var(--calme); color:var(--calme);">Enregistrer les mots éwé</button>
+
+    <label style="display:flex; align-items:center; justify-content:space-between; margin-top:18px;">
+      📳 Vibreur en plus de l'alarme
+      <input type="checkbox" id="vibrationToggle" checked style="width:20px; height:20px; accent-color:var(--calme);">
+    </label>
+
+    <label style="margin-top:18px;">🔒 Code PIN (protège ces réglages)</label>
+    <p style="color:var(--cream-dim); font-size:11.5px; margin-top:-2px;" id="pinStatusText">Aucun code PIN défini.</p>
+    <input type="text" inputmode="numeric" maxlength="6" id="pinInput" placeholder="Ex: 1234 (laisser vide = pas de code)">
+    <button class="reset-btn" id="savePinBtn" style="border-color:var(--calme); color:var(--calme); margin-top:8px;">Enregistrer le code</button>
+
+    <label style="margin-top:18px;">🔗 Tableau de bord à distance</label>
+    <p style="color:var(--cream-dim); font-size:11.5px; margin-top:-2px;" id="firebaseStatusText"></p>
+    <p style="color:var(--cream-dim); font-size:11px; margin-top:4px;">À remplir uniquement si tu as créé ton propre projet Firebase (voir guide). Laisse vide pour désactiver la surveillance à distance sur cette copie.</p>
+    <input type="text" id="fbApiKeyInput" placeholder="apiKey">
+    <input type="text" id="fbAuthDomainInput" placeholder="authDomain" style="margin-top:6px;">
+    <input type="text" id="fbDatabaseURLInput" placeholder="databaseURL" style="margin-top:6px;">
+    <input type="text" id="fbProjectIdInput" placeholder="projectId" style="margin-top:6px;">
+    <input type="text" id="fbStorageBucketInput" placeholder="storageBucket" style="margin-top:6px;">
+    <input type="text" id="fbSenderIdInput" placeholder="messagingSenderId" style="margin-top:6px;">
+    <input type="text" id="fbAppIdInput" placeholder="appId" style="margin-top:6px;">
+    <button class="reset-btn" id="saveFirebaseBtn" style="border-color:var(--calme); color:var(--calme); margin-top:8px;">Enregistrer et redémarrer</button>
+    <button class="reset-btn" id="disableFirebaseBtn" style="margin-top:6px;">Désactiver la surveillance à distance</button>
+
+    <button class="reset-btn" id="resetBtn">Réinitialiser points et record</button>
+    <button class="close-btn" id="closePanelBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- PIN entry gate -->
+<div class="overlay" id="pinGateOverlay">
+  <div class="panel">
+    <h2>🔒 Code requis</h2>
+    <div class="incident-quick">
+      <input type="text" inputmode="numeric" maxlength="6" id="pinGateInput" placeholder="Entre le code PIN">
+    </div>
+    <button class="launch-challenge-btn" id="pinGateConfirmBtn" style="background:var(--calme);">Déverrouiller</button>
+    <button class="reset-btn" id="pinGateCancelBtn">Annuler</button>
+  </div>
+</div>
+
+<!-- Home menu panel -->
+<div class="overlay" id="classOverlay">
+  <div class="panel">
+    <div class="menu-logo-row">
+      <div class="menu-logo-mark" id="logoMark">🥁</div>
+      <input type="file" accept="image/*" id="logoInput" style="display:none;">
+      <div class="menu-logo-text">Tam-Tam Silence<small>par AYH · Togo 🇹🇬</small></div>
+    </div>
+
+    <button class="menu-link" id="homeLinkBtn">🏠 Accueil</button>
+
+    <label style="margin-top:4px;">Nom de l'établissement</label>
+    <div class="new-class-row">
+      <input type="text" id="schoolInput" placeholder="Ex: Lycée Nyivémé">
+      <button id="saveSchoolBtn">OK</button>
+    </div>
+
+    <label>Classe active</label>
+    <select class="class-select" id="classSelect"></select>
+
+    <div class="new-class-row">
+      <input type="text" id="newClassInput" placeholder="Nouvelle classe: 3e A...">
+      <button id="addClassBtn">Ajouter</button>
+    </div>
+    <button class="reset-btn" id="saveClassesBtn" style="border-color:var(--calme); color:var(--calme); margin-top:8px;">💾 Enregistrer les classes</button>
+    <p style="color:var(--cream-dim); font-size:11px; margin-top:4px;">Tes classes se sauvegardent déjà automatiquement sur ce téléphone — ce bouton confirme juste que tout est bien enregistré.</p>
+
+    <label>Récapitulatif des classes</label>
+    <div class="recap-wrap">
+      <table class="recap">
+        <thead><tr><th>Classe</th><th>Record</th><th>Points</th><th></th></tr></thead>
+        <tbody id="recapBody"></tbody>
+      </table>
+    </div>
+    <p style="color:var(--cream-dim); font-size:12.5px; margin-top:8px;" id="nextRewardHint"></p>
+
+    <button class="menu-link" id="openIncidentLogBtn">🚩 Journal d'incidents</button>
+    <button class="menu-link" id="openRewardsBtn">🎁 Récompenses</button>
+    <button class="menu-link" id="openReportBtn">📄 Rapport hebdomadaire</button>
+    <button class="menu-link" id="openLeaderboardBtn">🏆 Classement des classes</button>
+    <button class="menu-link" id="openScheduleBtn">🕐 Emploi du temps</button>
+    <button class="menu-link" id="openClassTimerBtn">⏱️ Minuteur de cours</button>
+    <button class="menu-link" id="openJournalBtn">📓 Journal du professeur</button>
+    <button class="menu-link" id="openStaffScheduleBtn">🗓️ Tableau de service</button>
+    <button class="menu-link" id="projectorModeBtn">🖥️ Mode Projecteur</button>
+    <button class="menu-link" id="openBackupBtn">💾 Sauvegarde / Restauration</button>
+    <button class="menu-link" id="openSettingsFromMenuBtn" style="margin-top:16px;">⚙️ Réglages</button>
+    <button class="close-btn" id="closeClassBtn">Fermer</button>
+
+    <div style="margin-top:22px; padding-top:16px; border-top:1px solid rgba(244,239,230,0.1); text-align:center;">
+      <p style="font-family:'Fredoka'; font-weight:600; font-size:13.5px;">AYALE Yaovi (Honyore) 🇹🇬</p>
+      <p style="color:var(--cream-dim); font-size:12px; margin-top:2px;">Enseignant SVT · Lycée Nyivémé, Kpalimé</p>
+      <p style="color:var(--cream-dim); font-size:12px; margin-top:6px;">WhatsApp 98 31 10 80</p>
+      <div class="new-class-row" style="margin-top:10px;">
+        <input type="email" id="contactEmailInput" placeholder="Ton email de contact">
+        <button id="saveEmailBtn">OK</button>
+      </div>
+      <p style="color:var(--cream-dim); font-size:11px; margin-top:6px;" id="contactEmailDisplay"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Challenge setup panel -->
+<div class="overlay" id="challengeOverlay">
+  <div class="panel">
+    <h2>🏆 Défi Silence</h2>
+    <p style="color:var(--cream-dim); font-size:13px; margin-top:-8px;">La classe doit rester calme pendant toute la durée. En cas de bruit, le chrono se met en pause jusqu'au retour au calme.</p>
+    <label>Durée du défi</label>
+    <div class="duration-grid" id="durationGrid">
+      <button data-min="1">1 min</button>
+      <button data-min="2">2 min</button>
+      <button data-min="3">3 min</button>
+      <button data-min="5">5 min</button>
+      <button data-min="10">10 min</button>
+      <button data-min="15">15 min</button>
+    </div>
+    <button class="launch-challenge-btn" id="launchChallengeBtn">Lancer le défi</button>
+    <button class="reset-btn" id="cancelChallengeBtn">Annuler</button>
+  </div>
+</div>
+
+<!-- Challenge running screen -->
+<div class="challenge-screen" id="challengeScreen">
+  <div class="label">Défi Silence — <span id="challengeClassLabel"></span></div>
+  <div class="countdown" id="challengeCountdown">01:00</div>
+  <div class="msg" id="challengeMsg">C'est parti, silence total !</div>
+  <button class="abandon-btn" id="abandonChallengeBtn">Abandonner</button>
+</div>
+
+<!-- Challenge success screen -->
+<div class="challenge-success" id="challengeSuccess">
+  <div class="emoji">🎉</div>
+  <h2>Défi réussi !</h2>
+  <p id="challengeSuccessDetail">La classe a tenu le silence.</p>
+  <button id="challengeSuccessBtn">Continuer</button>
+</div>
+
+<!-- Quick incident entry -->
+<div class="overlay" id="incidentOverlay">
+  <div class="panel">
+    <h2>🚩 Qui a fait du bruit ?</h2>
+    <div class="incident-quick">
+      <input type="text" id="incidentNameInput" placeholder="Ex: Table 3, Kokou, fond de classe..." autofocus>
+    </div>
+    <button class="launch-challenge-btn" id="saveIncidentBtn" style="background:var(--bruit);">Enregistrer</button>
+    <button class="reset-btn" id="cancelIncidentBtn">Annuler</button>
+  </div>
+</div>
+
+<!-- Incident log -->
+<div class="overlay" id="incidentLogOverlay">
+  <div class="panel">
+    <h2>🚩 Journal — <span id="incidentLogClassName"></span></h2>
+    <div class="incident-log-wrap">
+      <table class="incident-table">
+        <thead><tr><th>Nom / Table</th><th>Fois</th></tr></thead>
+        <tbody id="incidentLogBody"></tbody>
+      </table>
+    </div>
+    <div id="incidentEmptyMsg" class="incident-empty" style="display:none;">Aucun incident noté pour cette classe.</div>
+    <button class="reset-btn" id="clearIncidentsBtn">Vider le journal de cette classe</button>
+    <button class="reset-btn" id="backFromIncidentLogBtn">← Retour au menu</button>
+    <button class="close-btn" id="closeIncidentLogBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Leaderboard -->
+<div class="overlay" id="leaderboardOverlay">
+  <div class="panel">
+    <h2>🏆 Classement des classes</h2>
+    <p style="color:var(--cream-dim); font-size:12.5px; margin-top:-8px;">Score de calme = points − incidents notés. Plus c'est haut, plus la classe est calme.</p>
+    <div class="recap-wrap" style="max-height:280px;">
+      <table class="recap">
+        <thead><tr><th>#</th><th>Classe</th><th>Score</th></tr></thead>
+        <tbody id="leaderboardBody"></tbody>
+      </table>
+    </div>
+    <button class="reset-btn" id="backFromLeaderboardBtn">← Retour au menu</button>
+    <button class="close-btn" id="closeLeaderboardBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Schedule -->
+<div class="overlay" id="scheduleOverlay">
+  <div class="panel">
+    <h2>🕐 Emploi du temps</h2>
+    <p style="color:var(--cream-dim); font-size:12.5px; margin-top:-8px;">L'appli bascule automatiquement sur la bonne classe à l'heure prévue.</p>
+    <div class="recap-wrap" style="max-height:200px;">
+      <table class="recap">
+        <thead><tr><th>Jour</th><th>Horaire</th><th>Classe</th><th></th></tr></thead>
+        <tbody id="scheduleBody"></tbody>
+      </table>
+    </div>
+    <label>Jour</label>
+    <select class="class-select" id="scheduleDaySelect">
+      <option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option>
+      <option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option><option value="0">Dimanche</option>
+    </select>
+    <div class="new-class-row">
+      <input type="time" id="scheduleStartInput" value="08:00">
+      <input type="time" id="scheduleEndInput" value="09:00">
+    </div>
+    <label>Classe</label>
+    <select class="class-select" id="scheduleClassSelect"></select>
+    <button class="launch-challenge-btn" id="addScheduleBtn" style="background:var(--calme); margin-top:10px;">Ajouter au planning</button>
+    <button class="reset-btn" id="backFromScheduleBtn">← Retour au menu</button>
+    <button class="close-btn" id="closeScheduleBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Premium upgrade prompt -->
+<div class="overlay" id="upgradeOverlay">
+  <div class="panel">
+    <h2>💎 Fonctionnalité Premium</h2>
+    <p style="color:var(--cream-dim); font-size:13.5px;" id="upgradeFeatureText">Cette fonctionnalité fait partie de l'abonnement Premium.</p>
+
+    <div style="display:flex; gap:10px; margin-top:14px;">
+      <div style="flex:1; background:rgba(244,239,230,0.06); border:1px solid rgba(244,239,230,0.12); border-radius:14px; padding:14px; text-align:center;">
+        <div style="font-family:'Fredoka'; font-weight:600; font-size:13px; color:var(--cream-dim);">Mensuel</div>
+        <div style="font-family:'Space Grotesk'; font-weight:700; font-size:20px; margin-top:4px;">3 500 F</div>
+        <div style="font-size:10.5px; color:var(--cream-dim);">par mois</div>
+      </div>
+      <div style="flex:1; background:rgba(0,168,94,0.12); border:1.5px solid var(--calme); border-radius:14px; padding:14px; text-align:center;">
+        <div style="font-family:'Fredoka'; font-weight:600; font-size:13px; color:var(--calme);">Annuel</div>
+        <div style="font-family:'Space Grotesk'; font-weight:700; font-size:20px; margin-top:4px;">30 000 F</div>
+        <div style="font-size:10.5px; color:var(--cream-dim);">Économise 12 000 F</div>
+      </div>
+    </div>
+
+    <p style="color:var(--cream-dim); font-size:12px; margin-top:12px;">Classes illimitées, récompenses, journal d'incidents, rapports PDF, classement, emploi du temps automatique, sauvegarde, verrouillage PIN, logo personnalisé et surveillance à distance.</p>
+
+    <button class="launch-challenge-btn" id="upgradeWhatsappBtn" style="background:var(--calme); margin-top:14px;">📲 Obtenir un code sur WhatsApp</button>
+    <button class="reset-btn" id="upgradeHaveCodeBtn">J'ai déjà un code</button>
+    <button class="close-btn" id="closeUpgradeBtn">Plus tard</button>
+  </div>
+</div>
+
+<!-- Class period timer -->
+<div class="overlay" id="classTimerOverlay">
+  <div class="panel">
+    <h2>⏱️ Minuteur de cours</h2>
+    <p style="color:var(--cream-dim); font-size:12.5px; margin-top:-8px;">Un rappel vocal à 10 min, à 5 min, puis à la fin de l'heure.</p>
+
+    <div id="classTimerRunning" style="display:none; background:rgba(255,209,0,0.1); border:1px solid rgba(255,209,0,0.35); border-radius:14px; padding:14px; margin-top:10px; text-align:center;">
+      <div style="font-family:'Space Grotesk'; font-size:32px; font-weight:700; color:var(--attention);" id="classTimerBigDisplay">00:00</div>
+      <div style="font-size:11.5px; color:var(--cream-dim); margin-top:2px;">temps restant</div>
+      <button class="reset-btn" id="stopClassTimerBtn" style="margin-top:10px; border-color:var(--bruit); color:var(--bruit);">⏹️ Arrêter le minuteur</button>
+    </div>
+
+    <label style="margin-top:16px;">Durée du cours</label>
+    <div class="new-class-row">
+      <input type="number" id="classTimerDurationInput" min="1" placeholder="Ex: 55">
+      <select class="class-select" id="classTimerUnitSelect" style="max-width:120px; margin-top:0;">
+        <option value="minutes">minutes</option>
+        <option value="heures">heures</option>
+      </select>
+    </div>
+    <p style="color:var(--cream-dim); font-size:11.5px; margin-top:4px;" id="classTimerDurationStatus"></p>
+
+    <label>Comment vous appeler</label>
+    <select class="class-select" id="classTimerTitleSelect">
+      <option value="professeur">Monsieur le professeur</option>
+      <option value="maitre">Le maître</option>
+      <option value="maitresse">La maîtresse</option>
+    </select>
+
+    <label>Ou ton propre nom (facultatif)</label>
+    <div class="new-class-row">
+      <input type="text" id="classTimerCustomNameInput" placeholder="Ex: Monsieur Kodjo, Madame Ama...">
+      <button id="saveCustomNameBtn">Enregistrer</button>
+    </div>
+    <p style="color:var(--cream-dim); font-size:11px; margin-top:4px;" id="customNameStatus"></p>
+
+    <label>Message à la fin de l'heure</label>
+    <select class="class-select" id="classTimerEndMsgSelect">
+      <option value="suite">« Bonne suite de cours »</option>
+      <option value="repos">« Bon repos »</option>
+    </select>
+
+    <button class="launch-challenge-btn" id="saveStartClassTimerBtn" style="background:var(--calme); margin-top:14px;">💾 Enregistrer et démarrer</button>
+    <button class="reset-btn" id="backFromClassTimerBtn">← Retour au menu</button>
+    <button class="close-btn" id="closeClassTimerBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Teacher's journal -->
+<div class="overlay" id="journalOverlay">
+  <div class="panel">
+    <h2>📓 Journal du professeur</h2>
+    <p style="color:var(--cream-dim); font-size:12.5px; margin-top:-8px;">Tes notes personnelles — jamais partagées, gardées uniquement sur ce téléphone.</p>
+
+    <label style="margin-top:14px;">Matières</label>
+    <p style="color:var(--cream-dim); font-size:11px; margin-top:-4px;">✏️ pour corriger, ✕ pour supprimer.</p>
+    <div class="new-class-row">
+      <input type="text" id="subjectInput" placeholder="Ex: SVT, Mathématiques...">
+      <button id="addSubjectBtn">Ajouter</button>
+    </div>
+    <div class="recap-wrap" style="max-height:130px; margin-top:10px;">
+      <table class="recap">
+        <thead><tr><th>Matière</th><th></th></tr></thead>
+        <tbody id="subjectsBody"></tbody>
+      </table>
+    </div>
+
+    <label style="margin-top:18px;">Titres de leçons</label>
+    <p style="color:var(--cream-dim); font-size:11px; margin-top:-4px;">Tape sur un titre pour l'afficher en bannière en haut de l'écran principal. ✏️ pour corriger, ✕ pour supprimer.</p>
+    <div class="new-class-row">
+      <input type="text" id="lessonTitleInput" placeholder="Ex: Chapitre 3 - La reproduction">
+      <button id="addLessonTitleBtn">Ajouter</button>
+    </div>
+    <div class="recap-wrap" style="max-height:150px; margin-top:10px;">
+      <table class="recap">
+        <thead><tr><th>Titre</th><th></th></tr></thead>
+        <tbody id="lessonTitlesBody"></tbody>
+      </table>
+    </div>
+
+    <label style="margin-top:18px;" id="journalEntryFormLabel">Nouvelle entrée du journal</label>
+    <p style="color:var(--cream-dim); font-size:11px; margin-top:-4px;">Lie l'entrée à une matière, une leçon et une classe, pour suivre l'avancement précisément.</p>
+    <select class="class-select" id="journalSubjectSelect"></select>
+    <select class="class-select" id="journalLessonSelect" style="margin-top:6px;"></select>
+    <select class="class-select" id="journalClassSelect" style="margin-top:6px;"></select>
+    <div class="new-class-row" style="margin-top:6px;">
+      <input type="number" id="journalInterroInput" placeholder="Nb interros/devoirs" min="0">
+    </div>
+    <input type="text" id="journalLevelInput" placeholder="Niveau atteint dans la leçon" style="margin-top:6px;">
+    <textarea id="journalNotesInput" placeholder="Notes personnelles..." style="width:100%; margin-top:6px; padding:12px; border-radius:10px; border:1px solid rgba(244,239,230,0.2); background:rgba(0,0,0,0.25); color:var(--cream); font-family:'Fredoka'; font-size:14px; min-height:70px; resize:vertical;"></textarea>
+    <button class="launch-challenge-btn" id="saveJournalEntryBtn" style="background:var(--calme); margin-top:10px;">💾 Enregistrer l'entrée</button>
+    <button class="reset-btn" id="cancelEditEntryBtn" style="display:none;">Annuler la modification</button>
+
+    <label style="margin-top:18px;">Aujourd'hui</label>
+    <div id="journalTodayList"></div>
+    <div id="journalTodayEmpty" class="incident-empty" style="display:none;">Aucune entrée aujourd'hui.</div>
+
+    <label style="margin-top:16px;">Cette semaine</label>
+    <div id="journalWeekList"></div>
+    <div id="journalWeekEmpty" class="incident-empty" style="display:none;">Aucune entrée cette semaine.</div>
+
+    <label style="margin-top:18px;">Rapport</label>
+    <div class="new-class-row">
+      <button id="journalReportTodayBtn" style="flex:1; background:var(--wood-light); color:var(--cream); border:1px solid rgba(244,239,230,0.15); border-radius:10px; padding:11px; font-family:'Fredoka'; font-weight:600;">Aujourd'hui</button>
+      <button id="journalReportWeekBtn" style="flex:1; background:var(--wood-light); color:var(--cream); border:1px solid rgba(244,239,230,0.15); border-radius:10px; padding:11px; font-family:'Fredoka'; font-weight:600;">Cette semaine</button>
+    </div>
+    <pre id="journalReportText" style="display:none; white-space:pre-wrap; font-family:'Fredoka'; font-size:13px; background:rgba(244,239,230,0.06); border-radius:12px; padding:14px; border:1px solid rgba(244,239,230,0.1); margin-top:10px;"></pre>
+    <button class="launch-challenge-btn" id="journalShareWhatsappBtn" style="background:var(--calme); margin-top:10px; display:none;">📤 Envoyer sur WhatsApp</button>
+    <button class="launch-challenge-btn" id="journalExportPdfBtn" style="background:var(--attention); color:#241a12; display:none;">🖨️ Exporter en PDF</button>
+
+    <button class="reset-btn" id="backFromJournalBtn">← Retour au menu</button>
+    <button class="close-btn" id="closeJournalBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Staff schedule (tableau de service) -->
+<div class="overlay" id="staffScheduleOverlay">
+  <div class="panel">
+    <h2>🗓️ Tableau de service</h2>
+    <p style="color:var(--cream-dim); font-size:12.5px; margin-top:-8px;">Emploi du temps de l'établissement — jusqu'à 50+ enseignants, du lundi au vendredi, 7h à 18h.</p>
+
+    <label style="margin-top:14px;">Enseignants</label>
+    <div class="new-class-row">
+      <input type="text" id="teacherNameInput" placeholder="Nom de l'enseignant">
+      <button id="addTeacherBtn">Ajouter</button>
+    </div>
+    <div class="recap-wrap" style="max-height:140px; margin-top:10px;">
+      <table class="recap">
+        <thead><tr><th>Enseignant</th><th></th></tr></thead>
+        <tbody id="teachersBody"></tbody>
+      </table>
+    </div>
+
+    <label style="margin-top:18px;">Besoins hebdomadaires par classe</label>
+    <p style="color:var(--cream-dim); font-size:11px; margin-top:-4px;">6e à 3e = 1h par leçon &middot; 2nde à Terminale = 2h par leçon (détecté automatiquement selon le nom de la classe).</p>
+    <select class="class-select" id="staffTeacherSelect"></select>
+    <select class="class-select" id="staffSubjectSelect" style="margin-top:6px;"></select>
+    <select class="class-select" id="staffClassSelect" style="margin-top:6px;"></select>
+    <div class="new-class-row" style="margin-top:6px;">
+      <input type="number" id="staffSessionsInput" placeholder="Nb de leçons/semaine" min="1">
+    </div>
+    <label style="margin-top:10px; margin-bottom:2px;">Jours autorisés pour cette matière</label>
+    <div class="day-checks" id="staffReqDayChecks">
+      <label><input type="checkbox" value="1" checked> Lun</label>
+      <label><input type="checkbox" value="2" checked> Mar</label>
+      <label><input type="checkbox" value="3" checked> Mer</label>
+      <label><input type="checkbox" value="4" checked> Jeu</label>
+      <label><input type="checkbox" value="5" checked> Ven</label>
+    </div>
+    <button class="launch-challenge-btn" id="addStaffRequirementBtn" style="background:var(--calme); margin-top:10px;">➕ Ajouter ce besoin</button>
+    <button class="reset-btn" id="cancelEditRequirementBtn" style="display:none;">Annuler la modification</button>
+
+    <div class="recap-wrap" style="max-height:220px; margin-top:10px;">
+      <div id="staffRequirementsBody"></div>
+    </div>
+
+    <label style="margin-top:16px; margin-bottom:2px;">Après-midis sans cours</label>
+    <p style="color:var(--cream-dim); font-size:11px; margin-top:-2px;">Aucune séance après 15h ces jours-là (ex: mercredi).</p>
+    <div class="day-checks" id="staffNoAfternoonChecks">
+      <label><input type="checkbox" value="1"> Lun</label>
+      <label><input type="checkbox" value="2"> Mar</label>
+      <label><input type="checkbox" value="3" checked> Mer</label>
+      <label><input type="checkbox" value="4"> Jeu</label>
+      <label><input type="checkbox" value="5"> Ven</label>
+    </div>
+
+    <button class="launch-challenge-btn" id="generateStaffScheduleBtn" style="background:var(--attention); color:#241a12; margin-top:12px;">🔄 Générer le tableau automatiquement</button>
+    <p style="color:var(--cream-dim); font-size:11px; margin-top:4px;">Redistribue toutes les heures selon les besoins ci-dessus, en évitant les conflits d'horaire, les heures de pause et les après-midis bloqués.</p>
+
+    <label style="margin-top:10px;">Ajouter/corriger une séance manuellement</label>
+    <select class="class-select" id="staffDaySelect">
+      <option value="1">Lundi</option>
+      <option value="2">Mardi</option>
+      <option value="3">Mercredi</option>
+      <option value="4">Jeudi</option>
+      <option value="5">Vendredi</option>
+    </select>
+    <div class="new-class-row" style="margin-top:6px;">
+      <input type="time" id="staffStartInput" value="07:00" min="07:00" max="18:00">
+      <select id="staffDurationSelect" style="max-width:110px;">
+        <option value="60">1 heure</option>
+        <option value="120">2 heures</option>
+      </select>
+    </div>
+    <button class="launch-challenge-btn" id="addStaffEntryBtn" style="background:var(--calme); margin-top:10px;">💾 Ajouter cette séance</button>
+
+    <label style="margin-top:18px;">Voir le tableau</label>
+    <select class="class-select" id="staffViewDaySelect">
+      <option value="1">Lundi</option>
+      <option value="2">Mardi</option>
+      <option value="3">Mercredi</option>
+      <option value="4">Jeudi</option>
+      <option value="5">Vendredi</option>
+    </select>
+    <div class="recap-wrap" style="max-height:340px; margin-top:10px;">
+      <table class="recap staff-grid">
+        <thead><tr><th>Période</th><th>Horaire</th><th>Séances (Enseignant — Matière — Classe)</th></tr></thead>
+        <tbody id="staffScheduleBody"></tbody>
+      </table>
+    </div>
+    <div id="staffScheduleEmpty" class="incident-empty" style="display:none;">Aucune séance ce jour-là.</div>
+
+    <label style="margin-top:18px;">Récapitulatif par enseignant</label>
+    <select class="class-select" id="staffRecapTeacherSelect"></select>
+    <div class="recap-wrap" style="max-height:340px; margin-top:10px;">
+      <table class="recap staff-grid" id="staffRecapTable">
+        <thead><tr id="staffRecapHead"></tr></thead>
+        <tbody id="staffRecapBody"></tbody>
+      </table>
+    </div>
+
+    <label style="margin-top:18px;">Exporter le tableau complet (5 jours + récap par enseignant)</label>
+    <button class="launch-challenge-btn" id="staffSharePdfBtn" style="background:var(--calme);">📤 Partager en PDF (WhatsApp...)</button>
+    <button class="launch-challenge-btn" id="staffExportPdfBtn" style="background:var(--attention); color:#241a12;">🖨️ Télécharger le PDF</button>
+
+    <button class="reset-btn" id="backFromStaffScheduleBtn">← Retour au menu</button>
+    <button class="close-btn" id="closeStaffScheduleBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Generic notice -->
+<div class="overlay" id="noticeOverlay">
+  <div class="panel">
+    <h2 id="noticeTitle">Info</h2>
+    <p style="color:var(--cream-dim); font-size:14px;" id="noticeText"></p>
+    <button class="close-btn" id="closeNoticeBtn">OK</button>
+  </div>
+</div>
+
+<!-- Rename class -->
+<div class="overlay" id="renameOverlay">
+  <div class="panel">
+    <h2>✏️ Renommer la classe</h2>
+    <div class="incident-quick">
+      <input type="text" id="renameInput" placeholder="Nouveau nom">
+    </div>
+    <button class="launch-challenge-btn" id="confirmRenameBtn" style="background:var(--calme);">Enregistrer</button>
+    <button class="reset-btn" id="cancelRenameBtn">Annuler</button>
+  </div>
+</div>
+
+<!-- Delete class confirm -->
+<div class="overlay" id="deleteConfirmOverlay">
+  <div class="panel">
+    <h2>🗑️ Supprimer cette classe ?</h2>
+    <p style="color:var(--cream-dim); font-size:14px;" id="deleteConfirmText"></p>
+    <button class="launch-challenge-btn" id="confirmDeleteBtn" style="background:var(--bruit);">Supprimer définitivement</button>
+    <button class="reset-btn" id="cancelDeleteBtn">Annuler</button>
+  </div>
+</div>
+
+<!-- Rewards catalogue -->
+<div class="overlay" id="rewardsOverlay">
+  <div class="panel">
+    <h2>🎁 Récompenses</h2>
+    <p style="color:var(--cream-dim); font-size:13px; margin-top:-8px;">Définis ce que les points débloquent pour la classe.</p>
+    <div class="recap-wrap" style="max-height:200px;">
+      <table class="recap">
+        <thead><tr><th>Points</th><th>Récompense</th><th></th></tr></thead>
+        <tbody id="rewardsBody"></tbody>
+      </table>
+    </div>
+    <div class="new-class-row" style="margin-top:12px;">
+      <input type="number" id="rewardPointsInput" placeholder="Pts" style="max-width:70px;">
+      <input type="text" id="rewardLabelInput" placeholder="Ex: 5 min de pause">
+      <button id="addRewardBtn">Ajouter</button>
+    </div>
+    <button class="reset-btn" id="backFromRewardsBtn">← Retour au menu</button>
+    <button class="close-btn" id="closeRewardsBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Backup / restore -->
+<div class="overlay" id="backupOverlay">
+  <div class="panel">
+    <h2>💾 Sauvegarde / Restauration</h2>
+    <p style="color:var(--cream-dim); font-size:13px; margin-top:-8px;">Exporte toutes tes données (classes, points, journal, récompenses) dans un fichier, ou restaure une sauvegarde précédente.</p>
+    <button class="launch-challenge-btn" id="exportDataBtn" style="background:var(--calme);">⬇️ Exporter mes données</button>
+    <button class="launch-challenge-btn" id="importDataTriggerBtn" style="background:var(--attention); color:#241a12;">⬆️ Restaurer une sauvegarde</button>
+    <input type="file" accept="application/json" id="importDataInput" style="display:none;">
+    <button class="reset-btn" id="backFromBackupBtn">← Retour au menu</button>
+    <button class="close-btn" id="closeBackupBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Weekly report -->
+<div class="overlay" id="reportOverlay">
+  <div class="panel">
+    <h2>📄 Rapport hebdomadaire</h2>
+    <p style="color:var(--cream-dim); font-size:13px; margin-top:-8px;" id="reportClassLabel"></p>
+    <div id="reportTrendChart" style="display:flex; align-items:flex-end; gap:4px; height:70px; margin:14px 0; background:rgba(0,0,0,0.2); border-radius:10px; padding:8px;"></div>
+    <pre id="reportText" style="white-space:pre-wrap; font-family:'Fredoka'; font-size:13.5px; background:rgba(244,239,230,0.06); border-radius:12px; padding:14px; border:1px solid rgba(244,239,230,0.1);"></pre>
+    <button class="launch-challenge-btn" id="shareReportBtn" style="background:var(--calme);">📤 Partager sur WhatsApp</button>
+    <button class="launch-challenge-btn" id="exportPdfBtn" style="background:var(--attention); color:#241a12;">🖨️ Exporter en PDF</button>
+    <button class="reset-btn" id="backFromReportBtn">← Retour au menu</button>
+    <button class="close-btn" id="closeReportBtn">Fermer</button>
+  </div>
+</div>
+
+<!-- Mic permission message -->
+<div class="mic-msg" id="micMsg">
+  <div class="emoji">🎙️</div>
+  <h3>Accès au micro nécessaire</h3>
+  <p>Cette appli a besoin du micro pour mesurer le bruit de la classe. Si ça ne fonctionne pas ici, télécharge le fichier et ouvre-le directement dans Chrome sur ton téléphone — il fonctionnera hors ligne, sans installation.</p>
+  <button id="micRetryBtn">Réessayer</button>
+</div>
+
+<script>
+(function(){
+  // ---------- Remote monitoring (Firebase) ----------
+  // Config par défaut (celle d'AYH) — chaque acheteur peut la remplacer par la sienne
+  // dans Réglages → Tableau de bord à distance, sans toucher au code.
+  const DEFAULT_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAkMtkGNsGqXq9j2NP2fkcYccyWOsBMJa4",
+    authDomain: "tam-tam-silence.firebaseapp.com",
+    databaseURL: "https://tam-tam-silence-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "tam-tam-silence",
+    storageBucket: "tam-tam-silence.firebasestorage.app",
+    messagingSenderId: "285330178275",
+    appId: "1:285330178275:web:3a2eed3f6cf5a4c3e685d6"
+  };
+
+  function loadFirebaseConfig(){
+    try{
+      const raw = localStorage.getItem('tamtam-firebase-config');
+      if(raw){
+        const parsed = JSON.parse(raw);
+        if(parsed && parsed.apiKey && parsed.databaseURL) return parsed;
+        if(parsed && parsed.disabled) return null; // explicitly disabled by this client
+      }
+    }catch(e){}
+    return DEFAULT_FIREBASE_CONFIG;
+  }
+
+  let db = null;
+
+  // ---------- Subscription / license ----------
+  const LICENSE_SECRET = 'AYH-TAMTAM-2026';
+  function simpleHash(str){
+    let h = 5381;
+    for(let i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
+    return h;
+  }
+  function computeSig(plan, expiry){
+    return (simpleHash(plan+'|'+expiry+'|'+LICENSE_SECRET) % 1679616).toString(36).toUpperCase().padStart(4,'0');
+  }
+  function validateLicenseCode(raw){
+    const code = (raw||'').trim().toUpperCase();
+    const parts = code.split('-');
+    if(parts.length !== 3) return null;
+    const [plan, expiry, sig] = parts;
+    if(plan !== 'MENSUEL' && plan !== 'ANNUEL') return null;
+    if(!/^\d{8}$/.test(expiry)) return null;
+    if(computeSig(plan, expiry) !== sig) return null;
+    const y = expiry.slice(0,4), m = expiry.slice(4,6), d = expiry.slice(6,8);
+    const expiresAt = new Date(`${y}-${m}-${d}T23:59:59`).getTime();
+    if(isNaN(expiresAt) || expiresAt < Date.now()) return null;
+    return { plan: plan.toLowerCase(), expiresAt, code };
+  }
+  function isPremium(){
+    return !!(appData.license && appData.license.plan !== 'free' && Date.now() < appData.license.expiresAt);
+  }
+  let pendingPremiumAction = null;
+  function requirePremium(featureText, action){
+    if(isPremium()){ action(); return; }
+    pendingPremiumAction = action;
+    el('upgradeFeatureText').textContent = featureText || 'Cette fonctionnalité fait partie de l\'abonnement Premium.';
+    el('upgradeOverlay').classList.add('open');
+  }
+  function renderSubscriptionStatus(){
+    const box = el('subStatusText'), detail = el('subDetailText');
+    if(isPremium()){
+      const d = new Date(appData.license.expiresAt);
+      box.textContent = `💎 Premium actif (${appData.license.plan === 'annuel' ? 'annuel' : 'mensuel'})`;
+      detail.textContent = `Valable jusqu'au ${d.toLocaleDateString('fr-FR')}.`;
+    } else {
+      box.textContent = '💎 Plan gratuit';
+      detail.textContent = 'Classes illimitées, récompenses, rapports et plus — active un code ci-dessous.';
+    }
+  }
+  const activeFirebaseConfig = loadFirebaseConfig();
+  if(activeFirebaseConfig){
+    try{
+      firebase.initializeApp(activeFirebaseConfig);
+      db = firebase.database();
+    }catch(e){ console.warn('Firebase indisponible', e); }
+  }
+
+  function slugify(str){
+    return (str || 'classe').toString()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[.#$\[\]\/]/g,'-')
+      .replace(/\s+/g,'-')
+      .trim() || 'classe';
+  }
+
+  let lastFirebasePush = 0;
+  function pushLiveStatus(level, st){
+    if(!db) return;
+    const now = performance.now();
+    if(now - lastFirebasePush < 3000) return;
+    lastFirebasePush = now;
+    const cls = getCurrentClassObj();
+    const key = slugify(appData.school) + '__' + slugify(appData.currentClass);
+    db.ref('live/' + key).set({
+      school: appData.school || '',
+      className: appData.currentClass,
+      level: Math.round(level),
+      state: st.key,
+      points: cls ? (cls.points||0) : 0,
+      updatedAt: Date.now()
+    }).catch(()=>{});
+  }
+
+  // ---------- Keep screen awake (so voice reminders keep firing) ----------
+  let wakeLock = null;
+  async function requestWakeLock(){
+    if(!('wakeLock' in navigator)) return;
+    try{
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', ()=>{ wakeLock = null; });
+    }catch(e){ /* refusé ou indisponible, on continue sans */ }
+  }
+  function releaseWakeLockIfIdle(){
+    // ne relâche que si ni le micro ni le minuteur de cours ne tournent
+    if(!running && !(appData.classTimer && appData.classTimer.endAt) && wakeLock){
+      wakeLock.release().catch(()=>{});
+      wakeLock = null;
+    }
+  }
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible' && (running || (appData.classTimer && appData.classTimer.endAt))){
+      requestWakeLock();
+    }
+  });
+
+  // ---------- State ----------
+  let audioCtx, analyser, dataArray, mic, rafId;
+  let running = false;
+  let smoothedLevel = 0;
+  let baseline = 8; // ambient noise floor, adjustable via calibration
+  let sensitivity = 1;
+  let thAttention = 7000, thBruit = 10000;
+  let pointsInterval = 300;
+  let silenceSeconds = 0, noiseSeconds = 0, points = 0, record = 0;
+  let lastTick = null;
+  let history = [];
+  let penaltyInterval = 30;
+  let alarmEnabled = true;
+  let lastAlarmTime = 0;
+  const ALARM_COOLDOWN = 15000; // ms between spoken warnings
+  let teacherModeActive = false;
+  let questionGraceUntil = 0;
+  let questionGraceDuration = 30; // seconds
+  let challengeActive = false, challengeRemaining = 0, challengeTotal = 0, challengeAutoStarted = false, challengeSelectedMinutes = null;
+  let incidentBtnVisibleUntil = 0;
+  const INCIDENT_BTN_GRACE_MS = 20000; // reste visible 20s après le dernier pic de bruit
+  const HISTORY_LEN = 40;
+
+  const el = id => document.getElementById(id);
+  const drumFace = el('drumFace');
+  const arcFill = el('arcFill');
+  const statusWord = el('statusWord');
+  const statusSub = el('statusSub');
+  const levelNumber = el('levelNumber');
+  const timerValue = el('timerValue');
+  const recordValue = el('recordValue');
+  const pointsValue = el('pointsValue');
+  const brandDot = el('brandDot');
+  const historyEl = el('history');
+  const toggleBtn = el('toggleBtn');
+  const challengeScreen = el('challengeScreen');
+  const challengeCountdown = el('challengeCountdown');
+  const challengeMsg = el('challengeMsg');
+  const challengeSuccess = el('challengeSuccess');
+
+  const RADIUS = 86;
+  const CIRC = 2 * Math.PI * RADIUS;
+  arcFill.style.strokeDasharray = CIRC;
+  arcFill.style.strokeDashoffset = CIRC;
+
+  // build lacing marks around drum rim
+  const lacing = el('lacing');
+  for(let i=0;i<24;i++){
+    const angle = (i/24) * Math.PI * 2;
+    const x1 = 100 + Math.cos(angle)*72, y1 = 100 + Math.sin(angle)*72;
+    const x2 = 100 + Math.cos(angle)*80, y2 = 100 + Math.sin(angle)*80;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    lacing.appendChild(line);
+  }
+  for(let i=0;i<HISTORY_LEN;i++){
+    const bar = document.createElement('div');
+    bar.className='bar'; bar.style.height='2px';
+    historyEl.appendChild(bar);
+  }
+
+  function setCssVar(name, val){ document.documentElement.style.setProperty(name, val); }
+
+  function stateFor(level){
+    const cls = getCurrentClassObj();
+    const att = (cls && typeof cls.thAttention === 'number') ? cls.thAttention : thAttention;
+    const bru = (cls && typeof cls.thBruit === 'number') ? cls.thBruit : thBruit;
+    if(level >= bru) return {key:'bruit', color:'var(--bruit)', word:'TROP BRUYANT', sub:'La classe doit se calmer'};
+    if(level >= att) return {key:'attention', color:'var(--attention)', word:'ATTENTION', sub:'Le bruit monte'};
+    return {key:'calme', color:'var(--calme)', word:'CALME', sub:'Parfait pour travailler'};
+  }
+
+  function fmtTime(s){
+    const m = Math.floor(s/60).toString().padStart(2,'0');
+    const sec = Math.floor(s%60).toString().padStart(2,'0');
+    return `${m}:${sec}`;
+  }
+
+  function isProtected(){
+    return teacherModeActive || performance.now() < questionGraceUntil;
+  }
+
+  function updateProtectionBadge(){
+    const badge = el('protectionBadge');
+    if(teacherModeActive){
+      badge.textContent = '🎤 Mode Cours actif — pas de pénalité';
+      badge.classList.add('show');
+    } else if(performance.now() < questionGraceUntil){
+      const left = Math.ceil((questionGraceUntil - performance.now())/1000);
+      badge.textContent = `🙋 Pause question — ${left}s`;
+      badge.classList.add('show');
+    } else {
+      badge.classList.remove('show');
+    }
+  }
+
+  function playBell(){
+    try{
+      const ctx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      [880, 660].forEach((freq, i)=>{
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime + i*0.35);
+        gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + i*0.35 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i*0.35 + 0.6);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + i*0.35);
+        osc.stop(ctx.currentTime + i*0.35 + 0.65);
+      });
+    }catch(e){}
+  }
+
+  function speakAlarm(){
+    const now = performance.now();
+    if(now - lastAlarmTime < ALARM_COOLDOWN) return;
+    lastAlarmTime = now;
+
+    if(appData.vibrationEnabled && 'vibrate' in navigator){
+      try{ navigator.vibrate([200,100,200,100,200]); }catch(e){}
+    }
+
+    if(!alarmEnabled) return;
+    if(appData.alarmStyle === 'clochette'){ playBell(); return; }
+    if(!('speechSynthesis' in window)) return;
+
+    const useEwe = appData.language === 'ewe' && appData.eweWords && appData.eweWords.alarme;
+    const phrase = useEwe ? appData.eweWords.alarme : 'Avertissement, la classe est bruyante';
+    try{
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(phrase);
+      utter.lang = useEwe ? 'fr-FR' : 'fr-FR';
+      if(appData.alarmStyle === 'stricte'){ utter.rate = 1.05; utter.pitch = 0.75; utter.volume = 1; }
+      else { utter.rate = 0.9; utter.pitch = 1.1; utter.volume = 1; }
+      window.speechSynthesis.speak(utter);
+    }catch(e){}
+  }
+
+  // ---------- Per-class data ----------
+  let appData = {
+    school:'', contactEmail:'yaovihonore98@gmail.com', logo:'',
+    classes:[{name:'Classe 1', points:0, record:0, challengesWon:0, incidents:[], challengeLog:[], thAttention:7000, thBruit:10000}],
+    currentClass:'Classe 1',
+    rewards:[{points:10, label:'5 minutes de pause'},{points:20, label:'Pas de devoir ce soir'},{points:40, label:'Musique libre en fin de cours'}],
+    alarmStyle:'douce',
+    language:'fr',
+    eweWords:{calme:'', attention:'', bruit:'', alarme:''},
+    settingsPin:'',
+    vibrationEnabled:true,
+    schedule:[],
+    license:{plan:'free', expiresAt:0, code:''},
+    classTimer:{title:'professeur', customName:'', durationMinutes:60, endMessage:'suite', endAt:0},
+    journal:{ lessons:[], subjects:[], activeLessonTitle:'', entries:[] },
+    staffSchedule:{ teachers:[], entries:[], requirements:[], noAfternoonDays:[3] }
+  };
+
+  function getCurrentClassObj(){
+    let cls = appData.classes.find(c=>c.name === appData.currentClass);
+    if(!cls){ cls = appData.classes[0]; appData.currentClass = cls.name; }
+    return cls;
+  }
+
+  async function loadData(){
+    try{
+      const raw = localStorage.getItem('tamtam-data');
+      if(raw){
+        const parsed = JSON.parse(raw);
+        if(parsed && parsed.classes && parsed.classes.length) appData = parsed;
+      }
+    }catch(e){}
+    if(!appData.rewards) appData.rewards = [];
+    if(!appData.eweWords) appData.eweWords = {calme:'',attention:'',bruit:'',alarme:''};
+    if(!appData.alarmStyle) appData.alarmStyle = 'douce';
+    if(!appData.language) appData.language = 'fr';
+    appData.classes.forEach(c=>{
+      if(!c.incidents) c.incidents=[];
+      if(!c.challengeLog) c.challengeLog=[];
+      const oldDefaults = [[35,65],[50,80],[1500,2200]];
+      if(oldDefaults.some(([a,b])=> c.thAttention === a && c.thBruit === b)){ c.thAttention = 7000; c.thBruit = 10000; }
+      if(typeof c.thAttention !== 'number') c.thAttention = 1500;
+      if(typeof c.thBruit !== 'number') c.thBruit = 2200;
+    });
+    if(typeof appData.settingsPin !== 'string') appData.settingsPin = '';
+    if(typeof appData.vibrationEnabled !== 'boolean') appData.vibrationEnabled = true;
+    if(!Array.isArray(appData.schedule)) appData.schedule = [];
+    if(!appData.license || typeof appData.license !== 'object') appData.license = {plan:'free', expiresAt:0, code:''};
+    if(!appData.classTimer || typeof appData.classTimer !== 'object') appData.classTimer = {title:'professeur', customName:'', durationMinutes:60, endMessage:'suite', endAt:0};
+    if(typeof appData.classTimer.customName !== 'string') appData.classTimer.customName = '';
+    if(!appData.journal || typeof appData.journal !== 'object') appData.journal = { lessons:[], activeLessonTitle:'', entries:[] };
+    if(!Array.isArray(appData.journal.lessons)) appData.journal.lessons = [];
+    if(!Array.isArray(appData.journal.entries)) appData.journal.entries = [];
+    if(!Array.isArray(appData.journal.subjects)) appData.journal.subjects = [];
+    if(!appData.staffSchedule || typeof appData.staffSchedule !== 'object') appData.staffSchedule = { teachers:[], entries:[] };
+    if(!Array.isArray(appData.staffSchedule.teachers)) appData.staffSchedule.teachers = [];
+    if(!Array.isArray(appData.staffSchedule.entries)) appData.staffSchedule.entries = [];
+    if(!Array.isArray(appData.staffSchedule.requirements)) appData.staffSchedule.requirements = [];
+    if(!Array.isArray(appData.staffSchedule.noAfternoonDays)) appData.staffSchedule.noAfternoonDays = [3];
+    refreshFromCurrentClass();
+    renderClassBadge();
+    renderClassSelect();
+    renderRecapTable();
+    renderLogo();
+    renderNextRewardHint();
+    renderSubscriptionStatus();
+    renderLessonBanner();
+    syncSettingsUI();
+  }
+  async function saveData(){
+    try{ localStorage.setItem('tamtam-data', JSON.stringify(appData)); }catch(e){}
+  }
+
+  function refreshFromCurrentClass(){
+    const cls = getCurrentClassObj();
+    points = cls.points || 0;
+    record = cls.record || 0;
+    recordValue.textContent = fmtTime(record);
+    pointsValue.textContent = `${points} ⭐`;
+  }
+
+  function renderClassBadge(){
+    el('currentClassLabel').textContent = appData.school ? `${appData.school} · ${appData.currentClass}` : appData.currentClass;
+  }
+
+  function renderLogo(){
+    const mark = el('logoMark');
+    if(appData.logo){
+      mark.style.backgroundImage = `url(${appData.logo})`;
+      mark.textContent = '';
+    } else {
+      mark.style.backgroundImage = '';
+      mark.textContent = '🥁';
+    }
+  }
+
+  function handleLogoFile(file){
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const size = 160;
+        const canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const scale = Math.max(size/img.width, size/img.height);
+        const w = img.width*scale, h = img.height*scale;
+        ctx.drawImage(img, (size-w)/2, (size-h)/2, w, h);
+        appData.logo = canvas.toDataURL('image/jpeg', 0.85);
+        renderLogo();
+        saveData();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderClassSelect(){
+    const sel = el('classSelect');
+    sel.innerHTML = '';
+    appData.classes.forEach(cls=>{
+      const opt = document.createElement('option');
+      opt.value = cls.name;
+      opt.textContent = cls.name;
+      if(cls.name === appData.currentClass) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  function renderRecapTable(){
+    const body = el('recapBody');
+    body.innerHTML = '';
+    appData.classes.forEach(cls=>{
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      if(cls.name === appData.currentClass) tr.classList.add('active-row');
+      tr.innerHTML = `
+        <td>${cls.name}</td>
+        <td class="num">${fmtTime(cls.record||0)}</td>
+        <td class="num">${cls.points||0} ⭐</td>
+        <td style="white-space:nowrap;"></td>`;
+      tr.addEventListener('click', ()=> switchClass(cls.name));
+
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '✏️';
+      editBtn.title = 'Renommer cette classe';
+      editBtn.style.cssText = 'background:none;border:none;font-size:14px;padding:4px 4px;';
+      editBtn.addEventListener('click', (e)=>{ e.stopPropagation(); renameClass(cls.name); });
+
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.title = 'Supprimer cette classe';
+      delBtn.style.cssText = 'background:none;border:none;color:var(--bruit);font-size:16px;font-weight:700;padding:4px 6px;';
+      delBtn.addEventListener('click', (e)=>{ e.stopPropagation(); deleteClass(cls.name); });
+
+      tr.lastElementChild.appendChild(editBtn);
+      tr.lastElementChild.appendChild(delBtn);
+      body.appendChild(tr);
+    });
+  }
+
+  let pendingRenameClass = null;
+  let pendingRenameLesson = null;
+  let pendingRenameSubject = null;
+  let pendingDeleteClass = null;
+
+  function showNotice(text, title){
+    el('noticeTitle').textContent = title || 'Info';
+    el('noticeText').textContent = text;
+    el('noticeOverlay').classList.add('open');
+  }
+
+  function renameClass(oldName){
+    pendingRenameClass = oldName;
+    el('renameInput').value = oldName;
+    el('renameOverlay').classList.add('open');
+    setTimeout(()=>{ el('renameInput').focus(); el('renameInput').select(); }, 100);
+  }
+
+  function commitRename(){
+    const trimmed = el('renameInput').value.trim();
+    el('renameOverlay').classList.remove('open');
+
+    if(pendingRenameSubject){
+      const oldSubject = pendingRenameSubject;
+      pendingRenameSubject = null;
+      if(!trimmed || trimmed === oldSubject) return;
+      if(appData.journal.subjects.includes(trimmed)){
+        showNotice('Cette matière existe déjà.', 'Nom déjà utilisé');
+        return;
+      }
+      const sIdx = appData.journal.subjects.indexOf(oldSubject);
+      if(sIdx !== -1) appData.journal.subjects[sIdx] = trimmed;
+      appData.journal.entries.forEach(e=>{ if(e.subject === oldSubject) e.subject = trimmed; });
+      saveData();
+      renderSubjectsList();
+      renderJournalSubjectSelect();
+      return;
+    }
+
+    if(pendingRenameLesson){
+      const oldTitle = pendingRenameLesson;
+      pendingRenameLesson = null;
+      if(!trimmed || trimmed === oldTitle) return;
+      if(appData.journal.lessons.includes(trimmed)){
+        showNotice('Une leçon porte déjà ce titre.', 'Titre déjà utilisé');
+        return;
+      }
+      const idx = appData.journal.lessons.indexOf(oldTitle);
+      if(idx !== -1) appData.journal.lessons[idx] = trimmed;
+      appData.journal.entries.forEach(e=>{ if(e.lessonTitle === oldTitle) e.lessonTitle = trimmed; });
+      if(appData.journal.activeLessonTitle === oldTitle) appData.journal.activeLessonTitle = trimmed;
+      saveData();
+      renderLessonBanner();
+      renderLessonTitlesList();
+      renderJournalLessonSelect();
+      return;
+    }
+
+    if(!pendingRenameClass) return;
+    if(!trimmed || trimmed === pendingRenameClass){ pendingRenameClass = null; return; }
+    if(appData.classes.some(c=> c.name.toLowerCase() === trimmed.toLowerCase())){
+      showNotice('Une classe porte déjà ce nom. Choisis un nom différent.', 'Nom déjà utilisé');
+      pendingRenameClass = null;
+      return;
+    }
+    const cls = appData.classes.find(c=> c.name === pendingRenameClass);
+    if(cls){
+      cls.name = trimmed;
+      if(appData.currentClass === pendingRenameClass) appData.currentClass = trimmed;
+      saveData();
+      renderClassBadge();
+      renderClassSelect();
+      renderRecapTable();
+    }
+    pendingRenameClass = null;
+  }
+
+  function deleteClass(name){
+    if(appData.classes.length <= 1){
+      showNotice('Il faut garder au moins une classe — impossible de supprimer la dernière.', 'Suppression impossible');
+      return;
+    }
+    pendingDeleteClass = name;
+    el('deleteConfirmText').textContent = `"${name}" et toutes ses données (points, record, incidents) seront définitivement supprimés.`;
+    el('deleteConfirmOverlay').classList.add('open');
+  }
+
+  function commitDelete(){
+    if(!pendingDeleteClass) return;
+    const name = pendingDeleteClass;
+    el('deleteConfirmOverlay').classList.remove('open');
+    appData.classes = appData.classes.filter(c=> c.name !== name);
+    if(appData.currentClass === name){
+      appData.currentClass = appData.classes[0].name;
+      silenceSeconds = 0;
+      refreshFromCurrentClass();
+      renderClassBadge();
+    }
+    saveData();
+    renderClassSelect();
+    renderRecapTable();
+    renderNextRewardHint();
+    pendingDeleteClass = null;
+  }
+
+  function switchClass(name){
+    appData.currentClass = name;
+    silenceSeconds = 0;
+    refreshFromCurrentClass();
+    renderClassBadge();
+    renderClassSelect();
+    renderRecapTable();
+    renderNextRewardHint();
+    saveData();
+  }
+
+  function renderIncidentLog(){
+    const cls = getCurrentClassObj();
+    const incidents = cls.incidents || [];
+    el('incidentLogClassName').textContent = appData.currentClass;
+    const counts = {};
+    incidents.forEach(inc=>{ counts[inc.label] = (counts[inc.label]||0) + 1; });
+    const sorted = Object.entries(counts).sort((a,b)=> b[1]-a[1]);
+    const body = el('incidentLogBody');
+    body.innerHTML = '';
+    sorted.forEach(([label, count])=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${label}</td><td class="num">${count}</td>`;
+      body.appendChild(tr);
+    });
+    el('incidentEmptyMsg').style.display = sorted.length ? 'none' : 'block';
+  }
+
+  function saveIncident(label){
+    label = label.trim();
+    if(!label) return;
+    const cls = getCurrentClassObj();
+    if(!cls.incidents) cls.incidents = [];
+    cls.incidents.push({label, timestamp: Date.now()});
+    saveData();
+  }
+
+  // ---------- Rewards catalogue ----------
+  function renderRewardsTable(){
+    const body = el('rewardsBody');
+    body.innerHTML = '';
+    const rewards = [...appData.rewards].sort((a,b)=> a.points-b.points);
+    rewards.forEach((r, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="num">${r.points}</td><td>${r.label}</td><td></td>`;
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.style.cssText = 'background:none;border:none;color:var(--bruit);font-size:15px;font-weight:700;';
+      delBtn.addEventListener('click', ()=>{
+        appData.rewards = appData.rewards.filter(x=> !(x.points===r.points && x.label===r.label));
+        saveData();
+        renderRewardsTable();
+        renderNextRewardHint();
+      });
+      tr.lastElementChild.appendChild(delBtn);
+      body.appendChild(tr);
+    });
+  }
+
+  function renderNextRewardHint(){
+    const cls = getCurrentClassObj();
+    const next = [...(appData.rewards||[])].sort((a,b)=>a.points-b.points).find(r=> r.points > (cls.points||0));
+    const hintEl = el('nextRewardHint');
+    if(next){
+      hintEl.textContent = `🎁 Encore ${next.points - (cls.points||0)} pts pour : ${next.label}`;
+    } else if(appData.rewards && appData.rewards.length){
+      hintEl.textContent = `🎉 Toutes les récompenses sont débloquées !`;
+    } else {
+      hintEl.textContent = '';
+    }
+  }
+
+  // ---------- Backup / restore ----------
+  function exportData(){
+    const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `tamtam-silence-sauvegarde-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importDataFromFile(file){
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{
+        const parsed = JSON.parse(e.target.result);
+        if(!parsed || !Array.isArray(parsed.classes) || !parsed.classes.length) throw new Error('invalid');
+        appData = parsed;
+        if(!appData.rewards) appData.rewards = [];
+        if(!appData.eweWords) appData.eweWords = {calme:'',attention:'',bruit:'',alarme:''};
+        saveData();
+        refreshFromCurrentClass();
+        renderClassBadge();
+        renderClassSelect();
+        renderRecapTable();
+        renderLogo();
+        renderNextRewardHint();
+        syncSettingsUI();
+        el('backupOverlay').classList.remove('open');
+        showNotice('Sauvegarde restaurée avec succès.', 'Terminé');
+      }catch(err){
+        showNotice("Ce fichier n'est pas une sauvegarde valide.", 'Erreur');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // ---------- Weekly report ----------
+  let lastReportDays = [];
+  function buildWeeklyReport(){
+    const cls = getCurrentClassObj();
+    const weekAgo = Date.now() - 7*24*60*60*1000;
+    const incidents = (cls.incidents||[]).filter(i=> i.timestamp >= weekAgo);
+    const challenges = (cls.challengeLog||[]).filter(c=> c.timestamp >= weekAgo);
+    const counts = {};
+    incidents.forEach(i=>{ counts[i.label] = (counts[i.label]||0)+1; });
+    const topIncidents = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+    el('reportClassLabel').textContent = `${appData.currentClass} — 7 derniers jours`;
+
+    let text = `Rapport hebdomadaire — ${appData.currentClass}\n`;
+    text += `${appData.school ? appData.school+'\n' : ''}`;
+    text += `Période : 7 derniers jours\n\n`;
+    text += `Points actuels : ${cls.points||0} ⭐\n`;
+    text += `Record de silence : ${fmtTime(cls.record||0)}\n`;
+    text += `Défis Silence réussis cette semaine : ${challenges.length}\n`;
+    text += `Incidents notés cette semaine : ${incidents.length}\n`;
+    if(topIncidents.length){
+      text += `\nLe plus fréquent :\n`;
+      topIncidents.forEach(([label,count])=> text += `  • ${label} — ${count} fois\n`);
+    }
+    el('reportText').textContent = text;
+
+    // Trend chart: incidents per day, last 7 days
+    const chart = el('reportTrendChart');
+    chart.innerHTML = '';
+    const days = [];
+    for(let i=6;i>=0;i--){
+      const dayStart = new Date(); dayStart.setHours(0,0,0,0); dayStart.setDate(dayStart.getDate()-i);
+      const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate()+1);
+      const count = (cls.incidents||[]).filter(inc=> inc.timestamp >= dayStart.getTime() && inc.timestamp < dayEnd.getTime()).length;
+      days.push({label: dayStart.toLocaleDateString('fr-FR',{weekday:'short'}).slice(0,2), count});
+    }
+    const maxCount = Math.max(1, ...days.map(d=>d.count));
+    days.forEach(d=>{
+      const col = document.createElement('div');
+      col.style.cssText = 'flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:3px;';
+      const bar = document.createElement('div');
+      bar.style.cssText = `width:100%; border-radius:3px 3px 0 0; background:${d.count>0?'var(--bruit)':'rgba(244,239,230,0.15)'}; height:${Math.max(3,(d.count/maxCount)*44)}px;`;
+      const lbl = document.createElement('div');
+      lbl.style.cssText = 'font-size:9px; color:var(--cream-dim);';
+      lbl.textContent = d.label;
+      col.appendChild(bar); col.appendChild(lbl);
+      chart.appendChild(col);
+    });
+    lastReportDays = days;
+    return text;
+  }
+
+  function exportReportPDF(){
+    if(!window.jspdf){ showNotice("La librairie PDF n'a pas pu se charger (vérifie ta connexion).", 'Erreur'); return; }
+    const cls = getCurrentClassObj();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const woodColor = [28,20,13];
+    const calmeColor = [0,135,81];
+    const bruitColor = [212,16,52];
+
+    doc.setFillColor(...woodColor);
+    doc.rect(0,0,210,32,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(18);
+    doc.text('Tam-Tam Silence', 14, 15);
+    doc.setFontSize(11);
+    doc.text('Rapport hebdomadaire', 14, 23);
+
+    doc.setTextColor(30,30,30);
+    doc.setFontSize(14);
+    doc.text(`${appData.currentClass}${appData.school ? ' — '+appData.school : ''}`, 14, 44);
+    doc.setFontSize(10);
+    doc.setTextColor(100,100,100);
+    doc.text(`Période : 7 derniers jours — généré le ${new Date().toLocaleDateString('fr-FR')}`, 14, 51);
+
+    doc.setDrawColor(230,230,230);
+    doc.line(14, 56, 196, 56);
+
+    doc.setTextColor(30,30,30);
+    doc.setFontSize(12);
+    let y = 66;
+    const weekAgo = Date.now() - 7*24*60*60*1000;
+    const incidents = (cls.incidents||[]).filter(i=> i.timestamp >= weekAgo);
+    const challenges = (cls.challengeLog||[]).filter(c=> c.timestamp >= weekAgo);
+    const rows = [
+      [`Points actuels`, `${cls.points||0} ⭐`],
+      [`Record de silence`, fmtTime(cls.record||0)],
+      [`Défis Silence réussis (semaine)`, `${challenges.length}`],
+      [`Incidents notés (semaine)`, `${incidents.length}`]
+    ];
+    rows.forEach(([label,val])=>{
+      doc.setFont(undefined,'normal'); doc.text(label, 14, y);
+      doc.setFont(undefined,'bold'); doc.text(String(val), 150, y);
+      y += 8;
+    });
+
+    y += 6;
+    doc.setFontSize(12); doc.setFont(undefined,'bold');
+    doc.text('Incidents par jour (7 derniers jours)', 14, y);
+    y += 8;
+    const maxCount = Math.max(1, ...lastReportDays.map(d=>d.count));
+    const barW = 22;
+    lastReportDays.forEach((d, i)=>{
+      const x = 14 + i*barW;
+      const h = Math.max(2, (d.count/maxCount)*30);
+      if(d.count>0) doc.setFillColor(...bruitColor); else doc.setFillColor(230,230,230);
+      doc.rect(x, y+30-h, barW-6, h, 'F');
+      doc.setFontSize(8); doc.setTextColor(100,100,100); doc.setFont(undefined,'normal');
+      doc.text(d.label, x, y+38);
+      doc.setFontSize(9); doc.setTextColor(30,30,30);
+      doc.text(String(d.count), x+2, y+30-h-2);
+    });
+    y += 50;
+
+    const counts = {};
+    incidents.forEach(i=>{ counts[i.label] = (counts[i.label]||0)+1; });
+    const topIncidents = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    if(topIncidents.length){
+      doc.setFontSize(12); doc.setFont(undefined,'bold'); doc.setTextColor(30,30,30);
+      doc.text('Le plus fréquent', 14, y);
+      y += 8;
+      doc.setFont(undefined,'normal'); doc.setFontSize(10);
+      topIncidents.forEach(([label,count])=>{
+        doc.text(`• ${label} — ${count} fois`, 16, y);
+        y += 6;
+      });
+    }
+
+    doc.setFontSize(8); doc.setTextColor(150,150,150);
+    doc.text('Tam-Tam Silence — par AYH · Togo', 14, 287);
+
+    const dateStr = new Date().toISOString().slice(0,10);
+    doc.save(`rapport-${appData.currentClass.replace(/\s+/g,'-')}-${dateStr}.pdf`);
+  }
+
+  // ---------- PIN lock ----------
+  let pendingSettingsOpen = false;
+  function requestOpenSettings(fromMenu){
+    if(appData.settingsPin){
+      pendingSettingsOpen = true;
+      el('pinGateInput').value = '';
+      if(fromMenu) el('classOverlay').classList.remove('open');
+      el('pinGateOverlay').classList.add('open');
+      setTimeout(()=> el('pinGateInput').focus(), 100);
+    } else {
+      if(fromMenu) el('classOverlay').classList.remove('open');
+      syncSettingsUI();
+      el('overlay').classList.add('open');
+    }
+  }
+
+  // ---------- Schedule (auto class switching) ----------
+  function renderScheduleTable(){
+    const body = el('scheduleBody');
+    body.innerHTML = '';
+    const dayNames = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+    appData.schedule.forEach((entry, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${dayNames[entry.day]}</td><td>${entry.start}–${entry.end}</td><td>${entry.className}</td><td></td>`;
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.style.cssText = 'background:none;border:none;color:var(--bruit);font-size:15px;font-weight:700;';
+      delBtn.addEventListener('click', ()=>{
+        appData.schedule.splice(idx,1);
+        saveData();
+        renderScheduleTable();
+      });
+      tr.lastElementChild.appendChild(delBtn);
+      body.appendChild(tr);
+    });
+    const classSel = el('scheduleClassSelect');
+    classSel.innerHTML = '';
+    appData.classes.forEach(c=>{
+      const opt = document.createElement('option');
+      opt.value = c.name; opt.textContent = c.name;
+      classSel.appendChild(opt);
+    });
+  }
+
+  function checkSchedule(){
+    if(!appData.schedule.length) return;
+    const now = new Date();
+    const day = now.getDay();
+    const hhmm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    const match = appData.schedule.find(e=> e.day === day && hhmm >= e.start && hhmm < e.end);
+    if(match && match.className !== appData.currentClass && appData.classes.some(c=>c.name===match.className)){
+      switchClass(match.className);
+    }
+  }
+
+  // ---------- Class period timer ----------
+  let classTimerAlerted10 = false, classTimerAlerted5 = false, classTimerAlertedEnd = false;
+
+  function classTimerTitlePhrase(){
+    if(appData.classTimer.customName && appData.classTimer.customName.trim()){
+      return appData.classTimer.customName.trim();
+    }
+    const t = appData.classTimer.title;
+    if(t === 'maitre') return 'Le maître';
+    if(t === 'maitresse') return 'La maîtresse';
+    return 'Monsieur le professeur';
+  }
+
+  function speakClassTimer(text){
+    if(appData.vibrationEnabled && 'vibrate' in navigator){
+      try{ navigator.vibrate([150,80,150]); }catch(e){}
+    }
+    if(!('speechSynthesis' in window)) return;
+    try{
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'fr-FR';
+      utter.rate = 0.92;
+      window.speechSynthesis.speak(utter);
+    }catch(e){}
+  }
+
+  function fmtClassTimer(ms){
+    const total = Math.max(0, Math.ceil(ms/1000));
+    const h = Math.floor(total/3600);
+    const m = Math.floor((total%3600)/60);
+    const s = total%60;
+    if(h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function startClassTimer(minutes, title, endMessage){
+    appData.classTimer = { title, customName: appData.classTimer.customName || '', durationMinutes: minutes, endMessage, endAt: Date.now() + minutes*60000 };
+    classTimerAlerted10 = false; classTimerAlerted5 = false; classTimerAlertedEnd = false;
+    saveData();
+    tickClassTimer();
+    requestWakeLock();
+  }
+
+  function stopClassTimer(){
+    appData.classTimer.endAt = 0;
+    saveData();
+    el('classTimerPill').style.display = 'none';
+    el('classTimerRunning').style.display = 'none';
+    releaseWakeLockIfIdle();
+  }
+
+  function updateDigitalClock(){
+    const now = new Date();
+    el('digitalClock').textContent =
+      String(now.getHours()).padStart(2,'0') + ':' +
+      String(now.getMinutes()).padStart(2,'0') + ':' +
+      String(now.getSeconds()).padStart(2,'0');
+  }
+
+  function tickClassTimer(){
+    updateDigitalClock();
+    const endAt = appData.classTimer ? appData.classTimer.endAt : 0;
+    if(!endAt){
+      el('classTimerPill').style.display = 'none';
+      return;
+    }
+    const remaining = endAt - Date.now();
+    const pill = el('classTimerPill');
+
+    if(remaining <= 0){
+      pill.textContent = "⏱️ 00:00";
+      pill.classList.add('ending');
+      pill.style.display = 'flex';
+      if(!classTimerAlertedEnd){
+        classTimerAlertedEnd = true;
+        const endPhrase = appData.classTimer.endMessage === 'repos' ? 'Bon repos.' : 'Bonne suite de cours.';
+        speakClassTimer(`Vous avez épuisé votre heure. ${endPhrase}`);
+        setTimeout(()=>{ stopClassTimer(); }, 8000);
+      }
+      return;
+    }
+
+    pill.style.display = 'flex';
+    pill.classList.toggle('ending', remaining <= 5*60000);
+    pill.textContent = '⏱️ ' + fmtClassTimer(remaining);
+
+    if(remaining <= 10*60000 && !classTimerAlerted10){
+      classTimerAlerted10 = true;
+      speakClassTimer(`${classTimerTitlePhrase()}, il vous reste 10 minutes.`);
+    }
+    if(remaining <= 5*60000 && !classTimerAlerted5){
+      classTimerAlerted5 = true;
+      speakClassTimer(`${classTimerTitlePhrase()}, il vous reste 5 minutes.`);
+    }
+
+    if(el('classTimerRunning').style.display !== 'none'){
+      el('classTimerBigDisplay').textContent = fmtClassTimer(remaining);
+    }
+  }
+
+  function initClassTimerAlertState(){
+    const endAt = appData.classTimer ? appData.classTimer.endAt : 0;
+    if(!endAt) return;
+    const remaining = endAt - Date.now();
+    classTimerAlerted10 = remaining <= 10*60000;
+    classTimerAlerted5 = remaining <= 5*60000;
+    classTimerAlertedEnd = remaining <= 0;
+  }
+
+  function renderClassTimerPanel(){
+    const endAt = appData.classTimer ? appData.classTimer.endAt : 0;
+    const running = endAt && (endAt - Date.now()) > 0;
+    el('classTimerRunning').style.display = running ? 'block' : 'none';
+    if(running) el('classTimerBigDisplay').textContent = fmtClassTimer(endAt - Date.now());
+    el('classTimerTitleSelect').value = appData.classTimer.title || 'professeur';
+    el('classTimerCustomNameInput').value = appData.classTimer.customName || '';
+    el('customNameStatus').textContent = appData.classTimer.customName
+      ? `Nom personnalisé actif : "${appData.classTimer.customName}"`
+      : "Aucun nom personnalisé — le choix ci-dessus sera utilisé.";
+    el('classTimerEndMsgSelect').value = appData.classTimer.endMessage || 'suite';
+
+    const minutes = appData.classTimer.durationMinutes || 60;
+    if(minutes % 60 === 0){
+      el('classTimerDurationInput').value = minutes/60;
+      el('classTimerUnitSelect').value = 'heures';
+    } else {
+      el('classTimerDurationInput').value = minutes;
+      el('classTimerUnitSelect').value = 'minutes';
+    }
+    el('classTimerDurationStatus').textContent = `Durée actuelle enregistrée : ${fmtClassTimer(minutes*60000)}`;
+  }
+
+  // ---------- Teacher's journal ----------
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function renderLessonBanner(){
+    const banner = el('lessonBanner');
+    const title = appData.journal.activeLessonTitle;
+    if(title){
+      el('lessonBannerText').textContent = title;
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  function renderSubjectsList(){
+    const body = el('subjectsBody');
+    body.innerHTML = '';
+    appData.journal.subjects.forEach((subject, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${subject}</td><td style="white-space:nowrap;"></td>`;
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '✏️';
+      editBtn.style.cssText = 'background:none;border:none;font-size:14px;padding:4px;';
+      editBtn.addEventListener('click', ()=>{
+        pendingRenameSubject = subject;
+        el('renameInput').value = subject;
+        el('renameOverlay').classList.add('open');
+        setTimeout(()=>{ el('renameInput').focus(); el('renameInput').select(); }, 100);
+      });
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.style.cssText = 'background:none;border:none;color:var(--bruit);font-size:15px;font-weight:700;';
+      delBtn.addEventListener('click', ()=>{
+        appData.journal.subjects.splice(idx,1);
+        saveData();
+        renderSubjectsList();
+        renderJournalSubjectSelect();
+      });
+      tr.lastElementChild.appendChild(editBtn);
+      tr.lastElementChild.appendChild(delBtn);
+      body.appendChild(tr);
+    });
+  }
+
+  function renderJournalSubjectSelect(){
+    const sel = el('journalSubjectSelect');
+    const prev = sel.value;
+    sel.innerHTML = '';
+    const noneOpt = document.createElement('option');
+    noneOpt.value = ''; noneOpt.textContent = '— Choisir une matière —';
+    sel.appendChild(noneOpt);
+    appData.journal.subjects.forEach(s=>{
+      const opt = document.createElement('option');
+      opt.value = s; opt.textContent = s;
+      sel.appendChild(opt);
+    });
+    if(appData.journal.subjects.includes(prev)) sel.value = prev;
+  }
+
+  function renderLessonTitlesList(){
+    const body = el('lessonTitlesBody');
+    body.innerHTML = '';
+    appData.journal.lessons.forEach((lesson, idx)=>{
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      if(lesson === appData.journal.activeLessonTitle) tr.classList.add('active-row');
+      tr.innerHTML = `<td>${lesson}</td><td style="white-space:nowrap;"></td>`;
+      tr.addEventListener('click', ()=>{
+        appData.journal.activeLessonTitle = (appData.journal.activeLessonTitle === lesson) ? '' : lesson;
+        saveData();
+        renderLessonBanner();
+        renderLessonTitlesList();
+      });
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '✏️';
+      editBtn.style.cssText = 'background:none;border:none;font-size:14px;padding:4px;';
+      editBtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        pendingRenameLesson = lesson;
+        el('renameInput').value = lesson;
+        el('renameOverlay').classList.add('open');
+        setTimeout(()=>{ el('renameInput').focus(); el('renameInput').select(); }, 100);
+      });
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.style.cssText = 'background:none;border:none;color:var(--bruit);font-size:15px;font-weight:700;';
+      delBtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        appData.journal.lessons.splice(idx,1);
+        if(appData.journal.activeLessonTitle === lesson) appData.journal.activeLessonTitle = '';
+        saveData();
+        renderLessonBanner();
+        renderLessonTitlesList();
+        renderJournalLessonSelect();
+      });
+      tr.lastElementChild.appendChild(editBtn);
+      tr.lastElementChild.appendChild(delBtn);
+      body.appendChild(tr);
+    });
+  }
+
+  function renderJournalClassSelect(){
+    const sel = el('journalClassSelect');
+    sel.innerHTML = '';
+    appData.classes.forEach(c=>{
+      const opt = document.createElement('option');
+      opt.value = c.name; opt.textContent = c.name;
+      if(c.name === appData.currentClass) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  function renderJournalLessonSelect(){
+    const sel = el('journalLessonSelect');
+    sel.innerHTML = '';
+    const noneOpt = document.createElement('option');
+    noneOpt.value = ''; noneOpt.textContent = '— Aucune leçon —';
+    sel.appendChild(noneOpt);
+    appData.journal.lessons.forEach(title=>{
+      const opt = document.createElement('option');
+      opt.value = title; opt.textContent = title;
+      if(title === appData.journal.activeLessonTitle) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  let editingJournalEntryId = null;
+
+  function journalEntryCard(e){
+    const div = document.createElement('div');
+    div.className = 'journal-entry-card';
+    const d = new Date(e.timestamp);
+    div.innerHTML = `
+      <div class="je-top">${e.className}${e.subject ? ' · '+e.subject : ''}${e.lessonTitle ? ' · '+e.lessonTitle : ''}</div>
+      <div class="je-meta">${d.toLocaleDateString('fr-FR')} · Interros/devoirs : ${e.interroCount||0}${e.levelReached ? ' · Niveau : '+e.levelReached : ''}</div>
+      ${e.notes ? `<div class="je-notes">${e.notes}</div>` : ''}
+    `;
+    const actions = document.createElement('div');
+    actions.className = 'je-actions';
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '✏️ Modifier';
+    editBtn.addEventListener('click', ()=> startEditJournalEntry(e.id));
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '✕ Supprimer';
+    delBtn.style.color = 'var(--bruit)';
+    delBtn.addEventListener('click', ()=>{
+      appData.journal.entries = appData.journal.entries.filter(en=> en.id !== e.id);
+      saveData();
+      renderJournalLists();
+      if(editingJournalEntryId === e.id) cancelEditJournalEntry();
+    });
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    div.appendChild(actions);
+    return div;
+  }
+
+  function startEditJournalEntry(id){
+    const e = appData.journal.entries.find(en=> en.id === id);
+    if(!e) return;
+    editingJournalEntryId = id;
+    el('journalSubjectSelect').value = e.subject || '';
+    el('journalLessonSelect').value = e.lessonTitle || '';
+    el('journalClassSelect').value = e.className || '';
+    el('journalInterroInput').value = e.interroCount || '';
+    el('journalLevelInput').value = e.levelReached || '';
+    el('journalNotesInput').value = e.notes || '';
+    el('journalEntryFormLabel').textContent = "Modifier l'entrée";
+    el('saveJournalEntryBtn').textContent = '💾 Mettre à jour l\'entrée';
+    el('cancelEditEntryBtn').style.display = 'block';
+    el('journalSubjectSelect').scrollIntoView({behavior:'smooth', block:'center'});
+  }
+
+  function cancelEditJournalEntry(){
+    editingJournalEntryId = null;
+    el('journalSubjectSelect').value = '';
+    el('journalLessonSelect').value = '';
+    el('journalInterroInput').value = '';
+    el('journalLevelInput').value = '';
+    el('journalNotesInput').value = '';
+    el('journalEntryFormLabel').textContent = 'Nouvelle entrée du journal';
+    el('saveJournalEntryBtn').textContent = '💾 Enregistrer l\'entrée';
+    el('cancelEditEntryBtn').style.display = 'none';
+  }
+
+  function renderJournalLists(){
+    const today = todayStr();
+    const weekAgo = Date.now() - 7*24*60*60*1000;
+
+    const todayEntries = appData.journal.entries.filter(e=> e.date === today).sort((a,b)=> b.timestamp-a.timestamp);
+    const todayList = el('journalTodayList');
+    todayList.innerHTML = '';
+    todayEntries.forEach(e=> todayList.appendChild(journalEntryCard(e)));
+    el('journalTodayEmpty').style.display = todayEntries.length ? 'none' : 'block';
+
+    const weekEntries = appData.journal.entries.filter(e=> e.timestamp >= weekAgo).sort((a,b)=> b.timestamp-a.timestamp);
+    const weekList = el('journalWeekList');
+    weekList.innerHTML = '';
+    weekEntries.forEach(e=> weekList.appendChild(journalEntryCard(e)));
+    el('journalWeekEmpty').style.display = weekEntries.length ? 'none' : 'block';
+  }
+
+  function buildJournalReportText(scope){
+    const today = todayStr();
+    const weekAgo = Date.now() - 7*24*60*60*1000;
+    const entries = (scope === 'today')
+      ? appData.journal.entries.filter(e=> e.date === today)
+      : appData.journal.entries.filter(e=> e.timestamp >= weekAgo);
+    const sorted = [...entries].sort((a,b)=> a.timestamp-b.timestamp);
+
+    let text = `Journal du professeur — ${scope === 'today' ? "Aujourd'hui" : '7 derniers jours'}\n`;
+    text += `${appData.school ? appData.school + '\n' : ''}`;
+    text += `Généré le ${new Date().toLocaleDateString('fr-FR')}\n\n`;
+
+    if(!sorted.length){
+      text += "Aucune entrée sur cette période.\n";
+      return text;
+    }
+    const totalInterro = sorted.reduce((s,e)=> s+(e.interroCount||0), 0);
+    text += `Total interrogations/devoirs : ${totalInterro}\n`;
+    text += `Nombre d'entrées : ${sorted.length}\n\n`;
+    sorted.forEach(e=>{
+      const d = new Date(e.timestamp);
+      text += `— ${d.toLocaleDateString('fr-FR')} · ${e.className}${e.subject ? ' · '+e.subject : ''}${e.lessonTitle ? ' · '+e.lessonTitle : ''}\n`;
+      text += `   Interros/devoirs : ${e.interroCount||0}`;
+      if(e.levelReached) text += ` · Niveau atteint : ${e.levelReached}`;
+      text += '\n';
+      if(e.notes) text += `   Notes : ${e.notes}\n`;
+    });
+    return text;
+  }
+
+  function exportJournalPDF(scope){
+    if(!window.jspdf){ showNotice("La librairie PDF n'a pas pu se charger (vérifie ta connexion).", 'Erreur'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFillColor(28,20,13);
+    doc.rect(0,0,210,30,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(16);
+    doc.text('Journal du professeur', 14, 14);
+    doc.setFontSize(10);
+    doc.text(scope === 'today' ? "Aujourd'hui" : '7 derniers jours', 14, 22);
+
+    doc.setTextColor(30,30,30);
+    doc.setFontSize(9.5);
+    const text = buildJournalReportText(scope);
+    const lines = doc.splitTextToSize(text.split('\n').slice(3).join('\n'), 180);
+    doc.text(lines, 14, 42);
+
+    doc.setFontSize(8);
+    doc.setTextColor(150,150,150);
+    doc.text('Tam-Tam Silence — par AYH · Togo', 14, 287);
+
+    const dateStr = new Date().toISOString().slice(0,10);
+    doc.save(`journal-professeur-${scope}-${dateStr}.pdf`);
+  }
+
+  // ---------- Staff schedule (tableau de service) ----------
+  const DAY_NAMES = {1:'Lundi', 2:'Mardi', 3:'Mercredi', 4:'Jeudi', 5:'Vendredi'};
+  const SCHOOL_BREAKS = [
+    {start:'09:45', end:'10:10', label:'RÉCRÉATION'},
+    {start:'12:00', end:'15:00', label:'GRANDE PAUSE'}
+  ];
+  const ROMANS = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+
+  function generatePeriods(){
+    const periods = [];
+    let t = '07:00';
+    let idx = 0;
+    while(t < '18:00'){
+      const hitBreak = SCHOOL_BREAKS.find(b=> t >= b.start && t < b.end);
+      if(hitBreak){ t = hitBreak.end; continue; }
+      const end = addMinutesToTime(t, 55);
+      if(end > '18:00') break;
+      periods.push({label: ROMANS[idx] || String(idx+1), start:t, end});
+      idx++;
+      t = end;
+    }
+    return periods;
+  }
+
+  function levelSessionMinutes(className){
+    const s = (className||'').toLowerCase();
+    if(/(2nde|2de|seconde|1[eè]re|premiere|premi[eè]re|tle|terminale)/.test(s)) return 120;
+    return 60;
+  }
+
+  function isBlockedAfternoon(day, start){
+    return appData.staffSchedule.noAfternoonDays.includes(day) && start >= '15:00';
+  }
+
+  function shuffleArray(arr){
+    const a = [...arr];
+    for(let i=a.length-1; i>0; i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    return a;
+  }
+
+  function generateStaffSchedule(){
+    appData.staffSchedule.entries = appData.staffSchedule.entries.filter(e=> !e.auto);
+    const periods = generatePeriods();
+    const unplaced = [];
+
+    // Traiter les besoins dans un ordre mélangé pour ne pas toujours favoriser
+    // la même matière sur les meilleurs créneaux.
+    const shuffledRequirements = shuffleArray(appData.staffSchedule.requirements);
+
+    shuffledRequirements.forEach(req=>{
+      const duration = levelSessionMinutes(req.className);
+      const allowedDays = (req.days && req.days.length) ? req.days : [1,2,3,4,5];
+
+      for(let s=0; s<req.sessionsPerWeek; s++){
+        // Construit tous les créneaux valides (jour + période), matin ET après-midi confondus,
+        // puis les mélange aléatoirement avant de choisir le premier libre.
+        const candidates = [];
+        allowedDays.forEach(day=>{
+          for(let i=0; i<periods.length; i++){
+            const p = periods[i];
+            const start = p.start;
+            if(isBlockedAfternoon(day, start)) continue;
+            let end;
+            if(duration === 60){
+              end = p.end;
+            } else {
+              const next = periods[i+1];
+              if(!next || next.start !== p.end) continue;
+              if(isBlockedAfternoon(day, next.start)) continue;
+              end = next.end;
+            }
+            candidates.push({day, start, end});
+          }
+        });
+
+        const shuffledCandidates = shuffleArray(candidates);
+        let placed = false;
+        for(const c of shuffledCandidates){
+          const teacherBusy = appData.staffSchedule.entries.some(e=> e.teacher===req.teacher && e.day===c.day && c.start<e.end && c.end>e.start);
+          const classBusy = appData.staffSchedule.entries.some(e=> e.className===req.className && e.day===c.day && c.start<e.end && c.end>e.start);
+          if(teacherBusy || classBusy) continue;
+          appData.staffSchedule.entries.push({
+            id: 'se_'+Date.now()+'_'+Math.floor(Math.random()*100000),
+            teacher: req.teacher, day: c.day, start: c.start, end: c.end, subject: req.subject, className: req.className, auto:true
+          });
+          placed = true;
+          break;
+        }
+        if(!placed) unplaced.push(`${req.teacher} · ${req.className} · ${req.subject||'—'}`);
+      }
+    });
+    saveData();
+    return unplaced;
+  }
+
+
+  function renderTeachersList(){
+    const body = el('teachersBody');
+    body.innerHTML = '';
+    appData.staffSchedule.teachers.forEach((teacher, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${teacher}</td><td></td>`;
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.style.cssText = 'background:none;border:none;color:var(--bruit);font-size:15px;font-weight:700;';
+      delBtn.addEventListener('click', ()=>{
+        appData.staffSchedule.teachers.splice(idx,1);
+        appData.staffSchedule.entries = appData.staffSchedule.entries.filter(e=> e.teacher !== teacher);
+        saveData();
+        renderTeachersList();
+        renderStaffTeacherSelect();
+        renderStaffScheduleDay();
+      });
+      tr.lastElementChild.appendChild(delBtn);
+      body.appendChild(tr);
+    });
+  }
+
+  function renderStaffTeacherSelect(){
+    const sel = el('staffTeacherSelect');
+    sel.innerHTML = '';
+    appData.staffSchedule.teachers.forEach(t=>{
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      sel.appendChild(opt);
+    });
+  }
+
+  function renderStaffSubjectSelect(){
+    const sel = el('staffSubjectSelect');
+    sel.innerHTML = '';
+    if(!appData.journal.subjects.length){
+      const opt = document.createElement('option');
+      opt.value = ''; opt.textContent = '— Ajoute des matières dans le Journal —';
+      sel.appendChild(opt);
+      return;
+    }
+    appData.journal.subjects.forEach(s=>{
+      const opt = document.createElement('option');
+      opt.value = s; opt.textContent = s;
+      sel.appendChild(opt);
+    });
+  }
+
+  function renderStaffClassSelect(){
+    const sel = el('staffClassSelect');
+    sel.innerHTML = '';
+    appData.classes.forEach(c=>{
+      const opt = document.createElement('option');
+      opt.value = c.name; opt.textContent = c.name;
+      sel.appendChild(opt);
+    });
+  }
+
+  let editingRequirementId = null;
+
+  function renderStaffRequirementsList(){
+    const body = el('staffRequirementsBody');
+    body.innerHTML = '';
+    const dayAbbr = {1:'Lun',2:'Mar',3:'Mer',4:'Jeu',5:'Ven'};
+    if(!appData.staffSchedule.requirements.length){
+      body.innerHTML = '<div class="incident-empty">Aucun besoin ajouté pour l\'instant.</div>';
+      return;
+    }
+    appData.staffSchedule.requirements.forEach((req)=>{
+      const hours = levelSessionMinutes(req.className) === 120 ? '2h' : '1h';
+      const daysLabel = (req.days && req.days.length) ? req.days.map(d=>dayAbbr[d]).join(', ') : 'Tous les jours';
+      const card = document.createElement('div');
+      card.className = 'journal-entry-card';
+      card.innerHTML = `
+        <div class="je-top">${req.teacher}</div>
+        <div class="je-meta">${req.className} · ${req.subject||'—'}</div>
+        <div class="je-meta">${req.sessionsPerWeek} séance(s)/semaine × ${hours} · Jours : ${daysLabel}</div>
+      `;
+      const actions = document.createElement('div');
+      actions.className = 'je-actions';
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '✏️ Modifier';
+      editBtn.addEventListener('click', ()=> startEditStaffRequirement(req.id));
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕ Supprimer';
+      delBtn.style.color = 'var(--bruit)';
+      delBtn.addEventListener('click', ()=>{
+        appData.staffSchedule.requirements = appData.staffSchedule.requirements.filter(r=> r.id !== req.id);
+        saveData();
+        renderStaffRequirementsList();
+        if(editingRequirementId === req.id) cancelEditStaffRequirement();
+      });
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+      card.appendChild(actions);
+      body.appendChild(card);
+    });
+  }
+
+  function startEditStaffRequirement(id){
+    const req = appData.staffSchedule.requirements.find(r=> r.id === id);
+    if(!req) return;
+    editingRequirementId = id;
+    el('staffTeacherSelect').value = req.teacher;
+    el('staffSubjectSelect').value = req.subject || '';
+    el('staffClassSelect').value = req.className;
+    el('staffSessionsInput').value = req.sessionsPerWeek;
+    document.querySelectorAll('#staffReqDayChecks input').forEach(cb=>{
+      cb.checked = req.days ? req.days.includes(parseInt(cb.value)) : true;
+    });
+    el('addStaffRequirementBtn').textContent = '💾 Mettre à jour ce besoin';
+    el('cancelEditRequirementBtn').style.display = 'block';
+    el('staffTeacherSelect').scrollIntoView({behavior:'smooth', block:'center'});
+  }
+
+  function cancelEditStaffRequirement(){
+    editingRequirementId = null;
+    el('staffSessionsInput').value = '';
+    document.querySelectorAll('#staffReqDayChecks input').forEach(cb=> cb.checked = true);
+    el('addStaffRequirementBtn').textContent = '➕ Ajouter ce besoin';
+    el('cancelEditRequirementBtn').style.display = 'none';
+  }
+
+  function renderStaffRecapTeacherSelect(){
+    const sel = el('staffRecapTeacherSelect');
+    const prev = sel.value;
+    sel.innerHTML = '';
+    appData.staffSchedule.teachers.forEach(t=>{
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      sel.appendChild(opt);
+    });
+    if(appData.staffSchedule.teachers.includes(prev)) sel.value = prev;
+  }
+
+  function renderStaffRecapGrid(){
+    const teacher = el('staffRecapTeacherSelect').value;
+    const head = el('staffRecapHead');
+    const body = el('staffRecapBody');
+    head.innerHTML = '<th>Période</th>';
+    [1,2,3,4,5].forEach(d=> head.innerHTML += `<th>${DAY_NAMES[d].slice(0,3)}</th>`);
+    body.innerHTML = '';
+    if(!teacher) return;
+
+    const periods = generatePeriods();
+    periods.forEach((p, i)=>{
+      const prevEnd = i===0 ? '07:00' : periods[i-1].end;
+      const brk = SCHOOL_BREAKS.find(b=> b.start === prevEnd);
+      if(brk){
+        const tr = document.createElement('tr');
+        tr.className = 'break-row';
+        tr.innerHTML = `<td colspan="6">${brk.label}</td>`;
+        body.appendChild(tr);
+      }
+      const tr = document.createElement('tr');
+      let cells = `<td class="period-label">${p.label}<br><span style="font-size:9.5px; color:var(--cream-dim);">${p.start}-${p.end}</span></td>`;
+      [1,2,3,4,5].forEach(d=>{
+        const session = appData.staffSchedule.entries.find(e=> e.teacher===teacher && e.day===d && e.start===p.start);
+        cells += `<td>${session ? `${session.subject||''}<br><span style="font-size:10px; color:var(--cream-dim);">${session.className||''}</span>` : ''}</td>`;
+      });
+      tr.innerHTML = cells;
+      body.appendChild(tr);
+    });
+  }
+
+  function addMinutesToTime(hhmm, minutes){
+    const [h,m] = hhmm.split(':').map(Number);
+    const total = h*60 + m + minutes;
+    const nh = Math.floor(total/60) % 24;
+    const nm = total % 60;
+    return String(nh).padStart(2,'0') + ':' + String(nm).padStart(2,'0');
+  }
+
+  function renderStaffScheduleDay(){
+    const day = parseInt(el('staffViewDaySelect').value);
+    const periods = generatePeriods();
+    const body = el('staffScheduleBody');
+    body.innerHTML = '';
+    let hasAny = false;
+
+    function addBreakRow(label, start, end){
+      const tr = document.createElement('tr');
+      tr.className = 'break-row';
+      tr.innerHTML = `<td colspan="3">${label} — ${start} à ${end}</td>`;
+      body.appendChild(tr);
+    }
+
+    periods.forEach((p, i)=>{
+      const prevEnd = i===0 ? '07:00' : periods[i-1].end;
+      const brk = SCHOOL_BREAKS.find(b=> b.start === prevEnd);
+      if(brk) addBreakRow(brk.label, brk.start, brk.end);
+
+      const sessions = appData.staffSchedule.entries
+        .filter(e=> e.day===day && e.start===p.start)
+        .sort((a,b)=> a.teacher.localeCompare(b.teacher));
+
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td');
+      td1.className = 'period-label';
+      td1.textContent = p.label;
+      const td2 = document.createElement('td');
+      td2.textContent = `${p.start}–${p.end}`;
+      const td3 = document.createElement('td');
+      if(sessions.length){
+        hasAny = true;
+        sessions.forEach(e=>{
+          const line = document.createElement('span');
+          line.className = 'session-line';
+          line.textContent = `${e.teacher} — ${e.subject||'—'} — ${e.className||'—'}`;
+          const delBtn = document.createElement('button');
+          delBtn.textContent = ' ✕';
+          delBtn.style.cssText = 'background:none;border:none;color:var(--bruit);font-size:11px;font-weight:700;';
+          delBtn.addEventListener('click', ()=>{
+            appData.staffSchedule.entries = appData.staffSchedule.entries.filter(en=> en.id !== e.id);
+            saveData();
+            renderStaffScheduleDay();
+          });
+          line.appendChild(delBtn);
+          td3.appendChild(line);
+        });
+      } else {
+        td3.innerHTML = '<span style="color:var(--cream-dim);">—</span>';
+      }
+      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+      body.appendChild(tr);
+    });
+
+    const lastBrk = SCHOOL_BREAKS.find(b=> b.start === periods[periods.length-1].end);
+    if(lastBrk) addBreakRow(lastBrk.label, lastBrk.start, lastBrk.end);
+
+    el('staffScheduleEmpty').style.display = hasAny ? 'none' : 'block';
+  }
+
+  function drawDayPage(doc, day){
+    doc.setFillColor(28,20,13);
+    doc.rect(0,0,210,26,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(16);
+    doc.text('Tableau de service', 14, 12);
+    doc.setFontSize(11);
+    doc.text(`${DAY_NAMES[day]}${appData.school ? ' — '+appData.school : ''}`, 14, 20);
+
+    const periods = generatePeriods();
+    const startX = 14, tableWidth = 182;
+    let y = 36;
+
+    doc.setFillColor(59,42,26);
+    doc.rect(startX, y, tableWidth, 7, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(8.5);
+    doc.text('Période', startX+2, y+5);
+    doc.text('Horaire', startX+26, y+5);
+    doc.text('Séances (Enseignant — Matière — Classe)', startX+52, y+5);
+    y += 7;
+
+    periods.forEach((p, i)=>{
+      const prevEnd = i===0 ? '07:00' : periods[i-1].end;
+      const brk = SCHOOL_BREAKS.find(b=> b.start === prevEnd);
+      if(brk){
+        if(y > 270){ doc.addPage(); y = 20; }
+        doc.setFillColor(255,247,214);
+        doc.setDrawColor(210,190,120);
+        doc.rect(startX, y, tableWidth, 7, 'FD');
+        doc.setFontSize(8);
+        doc.setTextColor(150,120,0);
+        doc.text(`${brk.label} — ${brk.start} à ${brk.end}`, startX+tableWidth/2, y+4.7, {align:'center'});
+        y += 7;
+      }
+
+      const sessions = appData.staffSchedule.entries
+        .filter(e=> e.day===day && e.start===p.start)
+        .sort((a,b)=> a.teacher.localeCompare(b.teacher));
+      const lines = sessions.length
+        ? sessions.map(e=> `${e.teacher} — ${e.subject||'—'} — ${e.className||'—'}`)
+        : ['—'];
+      const rowHeight = Math.max(7, lines.length*4.6 + 2.5);
+
+      if(y + rowHeight > 280){ doc.addPage(); y = 20; }
+
+      doc.setDrawColor(210,210,210);
+      doc.rect(startX, y, tableWidth, rowHeight);
+      doc.line(startX+24, y, startX+24, y+rowHeight);
+      doc.line(startX+50, y, startX+50, y+rowHeight);
+
+      doc.setTextColor(30,30,30);
+      doc.setFontSize(8.5);
+      doc.text(p.label, startX+12, y+5, {align:'center'});
+      doc.setFontSize(7);
+      doc.text(`${p.start}-${p.end}`, startX+26, y+5);
+      doc.setFontSize(7);
+      lines.forEach((line, li)=> doc.text(line, startX+52, y+5+li*4.6));
+
+      y += rowHeight;
+    });
+
+    const lastBrk = SCHOOL_BREAKS.find(b=> b.start === periods[periods.length-1].end);
+    if(lastBrk){
+      if(y > 270){ doc.addPage(); y = 20; }
+      doc.setFillColor(255,247,214);
+      doc.setDrawColor(210,190,120);
+      doc.rect(startX, y, tableWidth, 7, 'FD');
+      doc.setFontSize(8);
+      doc.setTextColor(150,120,0);
+      doc.text(`${lastBrk.label} — ${lastBrk.start} à ${lastBrk.end}`, startX+tableWidth/2, y+4.7, {align:'center'});
+    }
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(150,150,150);
+    doc.text('Tam-Tam Silence — par AYH · Togo', 14, 292);
+  }
+
+  function drawTeacherRecapPage(doc, teacher){
+    doc.setFillColor(28,20,13);
+    doc.rect(0,0,210,26,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(15);
+    doc.text('Récapitulatif — ' + teacher, 14, 13);
+    doc.setFontSize(9.5);
+    doc.text(appData.school || 'Tam-Tam Silence', 14, 20);
+
+    const periods = generatePeriods();
+    const days = [1,2,3,4,5];
+    const startX = 14, tableWidth = 182, col0Width = 24;
+    const dayColWidth = (tableWidth - col0Width)/5;
+    let y = 36;
+
+    doc.setFillColor(59,42,26);
+    doc.rect(startX, y, tableWidth, 8, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(8);
+    doc.text('Période', startX+2, y+5.5);
+    days.forEach((d,i)=> doc.text(DAY_NAMES[d], startX+col0Width+i*dayColWidth+2, y+5.5));
+    y += 8;
+
+    periods.forEach((p, pi)=>{
+      const prevEnd = pi===0 ? '07:00' : periods[pi-1].end;
+      const brk = SCHOOL_BREAKS.find(b=> b.start === prevEnd);
+      if(brk){
+        if(y > 270){ doc.addPage(); y = 20; }
+        doc.setFillColor(255,247,214);
+        doc.setDrawColor(210,190,120);
+        doc.rect(startX, y, tableWidth, 6, 'FD');
+        doc.setFontSize(7);
+        doc.setTextColor(150,120,0);
+        doc.text(brk.label, startX+tableWidth/2, y+4.2, {align:'center'});
+        y += 6;
+      }
+
+      if(y > 270){ doc.addPage(); y = 20; }
+      const rowH = 11;
+      doc.setDrawColor(210,210,210);
+      doc.setTextColor(30,30,30);
+      doc.rect(startX, y, col0Width, rowH);
+      doc.setFontSize(7.5);
+      doc.text(p.label, startX+2, y+4.5);
+      doc.setFontSize(6);
+      doc.text(`${p.start}-${p.end}`, startX+2, y+9);
+
+      days.forEach((d,i)=>{
+        const x = startX+col0Width+i*dayColWidth;
+        doc.rect(x, y, dayColWidth, rowH);
+        const session = appData.staffSchedule.entries.find(e=> e.teacher===teacher && e.day===d && e.start===p.start);
+        if(session){
+          doc.setFontSize(6.3);
+          doc.text(session.subject || '—', x+1, y+4.5, {maxWidth: dayColWidth-2});
+          doc.setFontSize(5.8);
+          doc.text(session.className || '', x+1, y+9, {maxWidth: dayColWidth-2});
+        }
+      });
+      y += rowH;
+    });
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(150,150,150);
+    doc.text('Tam-Tam Silence — par AYH · Togo', 14, 292);
+  }
+
+  function buildStaffSchedulePDF(){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    let first = true;
+    [1,2,3,4,5].forEach(day=>{
+      if(!first) doc.addPage();
+      first = false;
+      drawDayPage(doc, day);
+    });
+    appData.staffSchedule.teachers.forEach(teacher=>{
+      doc.addPage();
+      drawTeacherRecapPage(doc, teacher);
+    });
+    return doc;
+  }
+
+  function exportStaffSchedulePDF(){
+    if(!window.jspdf){ showNotice("La librairie PDF n'a pas pu se charger (vérifie ta connexion).", 'Erreur'); return; }
+    const doc = buildStaffSchedulePDF();
+    const dateStr = new Date().toISOString().slice(0,10);
+    doc.save(`tableau-de-service-${dateStr}.pdf`);
+  }
+
+  async function shareStaffSchedulePDF(){
+    if(!window.jspdf){ showNotice("La librairie PDF n'a pas pu se charger (vérifie ta connexion).", 'Erreur'); return; }
+    const doc = buildStaffSchedulePDF();
+    const dateStr = new Date().toISOString().slice(0,10);
+    const filename = `tableau-de-service-${dateStr}.pdf`;
+    const blob = doc.output('blob');
+    const file = new File([blob], filename, {type:'application/pdf'});
+
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file], title:'Tableau de service', text:'Tableau de service — Tam-Tam Silence'});
+        return;
+      }catch(e){ /* l'utilisateur a peut-être annulé, on continue sur le repli */ }
+    }
+    // Repli : téléchargement + ouverture WhatsApp avec un texte, le PDF est à joindre manuellement
+    doc.save(filename);
+    showNotice("Le PDF a été téléchargé. Ouvre WhatsApp et joins-le manuellement depuis tes fichiers/téléchargements (le partage direct n'est pas pris en charge par ce navigateur).", 'PDF prêt');
+  }
+
+  // ---------- Leaderboard ----------
+  function renderLeaderboard(){
+    const body = el('leaderboardBody');
+    body.innerHTML = '';
+    const ranked = [...appData.classes].map(c=>({
+      name: c.name,
+      score: (c.points||0) - (c.incidents ? c.incidents.length : 0)
+    })).sort((a,b)=> b.score - a.score);
+    const medals = ['🥇','🥈','🥉'];
+    ranked.forEach((r, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${medals[idx] || (idx+1)}</td><td>${r.name}</td><td class="num">${r.score}</td>`;
+      body.appendChild(tr);
+    });
+  }
+
+  function syncSettingsUI(){
+    const cls = getCurrentClassObj();
+    thAttention = typeof cls.thAttention === 'number' ? cls.thAttention : 35;
+    thBruit = typeof cls.thBruit === 'number' ? cls.thBruit : 65;
+    el('sensSlider').value = sensitivity; el('sensLabel').textContent = sensitivity.toFixed(1)+'x';
+    el('thAttSlider').value = thAttention; el('thAttLabel').textContent = thAttention;
+    el('thBruitSlider').value = thBruit; el('thBruitLabel').textContent = thBruit;
+    el('thClassLabel1').textContent = appData.currentClass;
+    el('thClassLabel2').textContent = appData.currentClass;
+    el('pointsIntervalSlider').value = pointsInterval; el('pointsIntervalLabel').textContent = (pointsInterval/60)+' min';
+    el('penaltyIntervalSlider').value = penaltyInterval; el('penaltyIntervalLabel').textContent = penaltyInterval+'s';
+    el('alarmToggle').checked = alarmEnabled;
+    el('alarmStyleSelect').value = appData.alarmStyle || 'douce';
+    el('vibrationToggle').checked = appData.vibrationEnabled;
+    el('questionGraceSlider').value = questionGraceDuration; el('questionGraceLabel').textContent = questionGraceDuration+'s';
+    el('languageToggle').checked = appData.language === 'ewe';
+    el('eweCalmeInput').value = appData.eweWords.calme || '';
+    el('eweAttentionInput').value = appData.eweWords.attention || '';
+    el('eweBruitInput').value = appData.eweWords.bruit || '';
+    el('eweAlarmInput').value = appData.eweWords.alarme || '';
+    el('pinInput').value = '';
+    el('pinStatusText').textContent = appData.settingsPin ? '🔒 Un code PIN est actif.' : 'Aucun code PIN défini.';
+
+    el('fbApiKeyInput').value = activeFirebaseConfig ? (activeFirebaseConfig.apiKey||'') : '';
+    el('fbAuthDomainInput').value = activeFirebaseConfig ? (activeFirebaseConfig.authDomain||'') : '';
+    el('fbDatabaseURLInput').value = activeFirebaseConfig ? (activeFirebaseConfig.databaseURL||'') : '';
+    el('fbProjectIdInput').value = activeFirebaseConfig ? (activeFirebaseConfig.projectId||'') : '';
+    el('fbStorageBucketInput').value = activeFirebaseConfig ? (activeFirebaseConfig.storageBucket||'') : '';
+    el('fbSenderIdInput').value = activeFirebaseConfig ? (activeFirebaseConfig.messagingSenderId||'') : '';
+    el('fbAppIdInput').value = activeFirebaseConfig ? (activeFirebaseConfig.appId||'') : '';
+    el('firebaseStatusText').textContent = db ? '🟢 Surveillance à distance active.' : '⚪ Désactivée sur cette copie.';
+  }
+  function addClass(name){
+    name = name.trim();
+    if(!name) return;
+    if(appData.classes.some(c=>c.name.toLowerCase()===name.toLowerCase())) return;
+    if(!isPremium() && appData.classes.length >= 1){
+      requirePremium("Le plan gratuit est limité à 1 classe. Passe en Premium pour des classes illimitées.", ()=> addClass(name));
+      return;
+    }
+    appData.classes.push({name, points:0, record:0, challengesWon:0, incidents:[], challengeLog:[], thAttention:7000, thBruit:10000});
+    saveData();
+    renderClassSelect();
+    renderRecapTable();
+  }
+
+  async function startMic(){
+    try{
+      mic = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.4;
+      const src = audioCtx.createMediaStreamSource(mic);
+      src.connect(analyser);
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      el('micMsg').classList.remove('open');
+      return true;
+    }catch(err){
+      el('micMsg').classList.add('open');
+      return false;
+    }
+  }
+
+  function stopMic(){
+    if(mic){ mic.getTracks().forEach(t=>t.stop()); mic=null; }
+    if(audioCtx){ audioCtx.close(); audioCtx=null; }
+    if(rafId) cancelAnimationFrame(rafId);
+  }
+
+  const MAX_LEVEL = 15000; // échelle élargie pour laisser de la marge sur des classes bruyantes
+  function computeLevel(){
+    analyser.getByteFrequencyData(dataArray);
+    let sum = 0;
+    for(let i=0;i<dataArray.length;i++){ sum += dataArray[i]*dataArray[i]; }
+    const rms = Math.sqrt(sum/dataArray.length);
+    let level = Math.max(0, (rms - baseline) * sensitivity * 60);
+    level = Math.min(MAX_LEVEL, level);
+    return level;
+  }
+
+  function pushHistory(level){
+    history.push(level);
+    if(history.length > HISTORY_LEN) history.shift();
+    const bars = historyEl.children;
+    const offset = bars.length - history.length;
+    for(let i=0;i<bars.length;i++){
+      if(i < offset){ bars[i].style.height='2px'; continue; }
+      const v = history[i-offset];
+      bars[i].style.height = Math.max(2, (v/MAX_LEVEL)*34) + 'px';
+      const st = stateFor(v);
+      bars[i].style.background = getComputedStyle(document.documentElement).getPropertyValue(st.color.match(/--[\w-]+/)[0]);
+    }
+  }
+
+  function tick(ts){
+    if(!running) return;
+    const level = computeLevel();
+    smoothedLevel += (level - smoothedLevel) * 0.25;
+
+    const st = stateFor(smoothedLevel);
+    setCssVar('--state-color', st.color);
+    drumFace.setAttribute('fill', st.key==='calme' ? '#3b2a1a' : (st.key==='attention' ? '#4a3a1a' : '#4a1a1a'));
+    pushLiveStatus(smoothedLevel, st);
+    let displayWord = st.word;
+    if(appData.language === 'ewe' && appData.eweWords){
+      const map = {calme: appData.eweWords.calme, attention: appData.eweWords.attention, bruit: appData.eweWords.bruit};
+      if(map[st.key]) displayWord = map[st.key];
+    }
+    statusWord.textContent = displayWord;
+    statusSub.textContent = st.sub;
+    levelNumber.textContent = Math.round(smoothedLevel);
+    brandDot.style.background = st.color;
+
+    const offset = CIRC - Math.min(1, smoothedLevel/MAX_LEVEL) * CIRC;
+    arcFill.style.strokeDashoffset = offset;
+    arcFill.style.stroke = getComputedStyle(document.documentElement).getPropertyValue(st.color.match(/--[\w-]+/)[0]);
+
+    // subtle pulse on drum when loud
+    const scale = 1 + Math.min(0.06, (smoothedLevel/MAX_LEVEL)*0.08);
+    document.querySelector('.drum-center').style.transform = `scale(${scale})`;
+
+    // timer logic
+    const now = performance.now();
+    if(lastTick){
+      const dt = (now - lastTick)/1000;
+      const cls = getCurrentClassObj();
+      if(st.key === 'calme'){
+        silenceSeconds += dt;
+        noiseSeconds = 0;
+        if(silenceSeconds > record){
+          record = silenceSeconds; recordValue.textContent = fmtTime(record);
+          cls.record = record;
+        }
+        if(Math.floor(silenceSeconds / pointsInterval) > Math.floor((silenceSeconds-dt)/pointsInterval)){
+          points += 1;
+          pointsValue.textContent = `${points} ⭐`;
+          cls.points = points;
+          saveData();
+        }
+      } else if(st.key === 'bruit'){
+        if(silenceSeconds > 0){ cls.record = Math.max(cls.record||0, record); saveData(); }
+        silenceSeconds = 0;
+        if(isProtected()){
+          noiseSeconds = 0;
+        } else {
+          noiseSeconds += dt;
+          if(Math.floor(noiseSeconds / penaltyInterval) > Math.floor((noiseSeconds-dt)/penaltyInterval)){
+            points = Math.max(0, points - 1);
+            pointsValue.textContent = `${points} ⭐`;
+            cls.points = points;
+            saveData();
+          }
+          speakAlarm();
+        }
+      } else {
+        if(silenceSeconds > 0){ cls.record = Math.max(cls.record||0, record); saveData(); }
+        silenceSeconds = 0;
+        noiseSeconds = 0;
+      }
+      timerValue.textContent = fmtTime(silenceSeconds);
+      updateProtectionBadge();
+      if(st.key === 'bruit' && !isProtected()){
+        incidentBtnVisibleUntil = performance.now() + INCIDENT_BTN_GRACE_MS;
+      }
+      el('logIncidentBtn').classList.toggle('show', performance.now() < incidentBtnVisibleUntil);
+
+      // ---- Challenge mode ----
+      if(challengeActive){
+        if(st.key === 'calme'){
+          challengeRemaining -= dt;
+          challengeMsg.textContent = 'Silence parfait, continue...';
+        } else if(st.key === 'attention'){
+          challengeMsg.textContent = 'Chut... presque là';
+        } else {
+          challengeMsg.textContent = 'Trop de bruit ! En pause...';
+        }
+        challengeCountdown.textContent = fmtTime(Math.max(0, challengeRemaining));
+        challengeCountdown.style.color = getComputedStyle(document.documentElement).getPropertyValue(st.color.match(/--[\w-]+/)[0]);
+        if(challengeRemaining <= 0){
+          completeChallenge();
+        }
+      }
+    }
+    lastTick = now;
+
+    if(Math.random() < 0.5){ // throttle history updates a bit
+      pushHistory(smoothedLevel);
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  async function toggleRunning(){
+    if(running){
+      running = false;
+      stopMic();
+      toggleBtn.textContent = '▶️ Démarrer';
+      toggleBtn.classList.remove('btn-stop');
+      toggleBtn.classList.add('btn-start');
+      statusWord.textContent = 'EN PAUSE';
+      statusSub.textContent = 'Appuie sur Démarrer';
+      levelNumber.textContent = '--';
+      if(silenceSeconds > 0) saveRecord();
+      releaseWakeLockIfIdle();
+    } else {
+      const ok = await startMic();
+      if(!ok) return;
+      running = true;
+      lastTick = null;
+      toggleBtn.textContent = '⏸️ Arrêter';
+      toggleBtn.classList.remove('btn-start');
+      toggleBtn.classList.add('btn-stop');
+      rafId = requestAnimationFrame(tick);
+      requestWakeLock();
+    }
+  }
+
+  async function calibrate(){
+    const wasRunning = running;
+    let ctx = audioCtx, an = analyser, arr = dataArray, m = mic;
+    let tempStarted = false;
+    if(!ctx || !an){
+      const ok = await startMic();
+      if(!ok) return;
+      ctx = audioCtx; an = analyser; arr = dataArray;
+      tempStarted = true;
+    }
+    statusWord.textContent = 'CALIBRAGE...';
+    statusSub.textContent = 'Silence pendant 3 secondes';
+    let samples = [];
+    const collect = () => {
+      an.getByteFrequencyData(arr);
+      let sum=0; for(let i=0;i<arr.length;i++) sum += arr[i]*arr[i];
+      samples.push(Math.sqrt(sum/arr.length));
+    };
+    const iv = setInterval(collect, 100);
+    setTimeout(()=>{
+      clearInterval(iv);
+      if(samples.length){
+        baseline = samples.reduce((a,b)=>a+b,0)/samples.length + 2;
+      }
+      statusWord.textContent = wasRunning ? 'CALME' : 'PRÊT';
+      statusSub.textContent = wasRunning ? 'Parfait pour travailler' : 'Réglé ! Appuie sur Démarrer';
+      if(tempStarted && !wasRunning){ stopMic(); }
+    }, 3000);
+  }
+
+  // ---------- UI wiring ----------
+  toggleBtn.addEventListener('click', toggleRunning);
+  el('calibrateBtn').addEventListener('click', calibrate);
+  el('micRetryBtn').addEventListener('click', async ()=>{ await toggleRunning(); });
+
+  el('settingsBtn').addEventListener('click', ()=> requestOpenSettings(false));
+  el('closePanelBtn').addEventListener('click', ()=> el('overlay').classList.remove('open'));
+  el('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') el('overlay').classList.remove('open'); });
+
+  const sensSlider = el('sensSlider');
+  sensSlider.addEventListener('input', ()=>{ sensitivity = parseFloat(sensSlider.value); el('sensLabel').textContent = sensitivity.toFixed(1)+'x'; });
+  el('sensLabel').textContent = '1.0x';
+
+  const thAttSlider = el('thAttSlider');
+  thAttSlider.addEventListener('input', ()=>{
+    thAttention = parseInt(thAttSlider.value);
+    if(thAttention >= thBruit){ thBruit = thAttention+1; el('thBruitSlider').value = thBruit; el('thBruitLabel').textContent = thBruit; }
+    el('thAttLabel').textContent = thAttention;
+    const cls = getCurrentClassObj();
+    cls.thAttention = thAttention; cls.thBruit = thBruit;
+    saveData();
+  });
+  el('thAttLabel').textContent = thAttention;
+
+  const thBruitSlider = el('thBruitSlider');
+  thBruitSlider.addEventListener('input', ()=>{
+    thBruit = parseInt(thBruitSlider.value);
+    if(thBruit <= thAttention){ thAttention = thBruit-1; el('thAttSlider').value = thAttention; el('thAttLabel').textContent = thAttention; }
+    el('thBruitLabel').textContent = thBruit;
+    const cls = getCurrentClassObj();
+    cls.thAttention = thAttention; cls.thBruit = thBruit;
+    saveData();
+  });
+  el('thBruitLabel').textContent = thBruit;
+
+  const ptsSlider = el('pointsIntervalSlider');
+  ptsSlider.addEventListener('input', ()=>{
+    pointsInterval = parseInt(ptsSlider.value);
+    el('pointsIntervalLabel').textContent = (pointsInterval/60) + ' min';
+  });
+
+  const penaltySlider = el('penaltyIntervalSlider');
+  penaltySlider.addEventListener('input', ()=>{
+    penaltyInterval = parseInt(penaltySlider.value);
+    el('penaltyIntervalLabel').textContent = penaltyInterval + 's';
+  });
+
+  el('alarmToggle').addEventListener('change', (e)=>{ alarmEnabled = e.target.checked; });
+
+  const graceSlider = el('questionGraceSlider');
+  graceSlider.addEventListener('input', ()=>{
+    questionGraceDuration = parseInt(graceSlider.value);
+    el('questionGraceLabel').textContent = questionGraceDuration + 's';
+  });
+
+  el('teacherModeBtn').addEventListener('click', ()=>{
+    teacherModeActive = !teacherModeActive;
+    el('teacherModeBtn').classList.toggle('active-mode', teacherModeActive);
+    if(teacherModeActive) questionGraceUntil = 0;
+    updateProtectionBadge();
+  });
+
+  el('questionPauseBtn').addEventListener('click', ()=>{
+    if(teacherModeActive) return;
+    questionGraceUntil = performance.now() + questionGraceDuration*1000;
+    updateProtectionBadge();
+  });
+
+  el('resetBtn').addEventListener('click', async ()=>{
+    const cls = getCurrentClassObj();
+    points = 0; record = 0; silenceSeconds = 0; noiseSeconds = 0;
+    cls.points = 0; cls.record = 0; cls.challengesWon = 0;
+    pointsValue.textContent = '0 ⭐';
+    recordValue.textContent = '00:00';
+    timerValue.textContent = '00:00';
+    await saveData();
+  });
+
+  // ---------- Home menu ----------
+  el('logoMark').addEventListener('click', ()=> requirePremium('Le logo personnalisé fait partie de l\'abonnement Premium.', ()=> el('logoInput').click()));
+  el('logoInput').addEventListener('change', (e)=>{
+    if(e.target.files && e.target.files[0]) handleLogoFile(e.target.files[0]);
+  });
+  el('menuToggle').addEventListener('click', ()=>{
+    renderClassSelect();
+    renderRecapTable();
+    renderNextRewardHint();
+    el('schoolInput').value = appData.school || '';
+    el('contactEmailInput').value = appData.contactEmail || '';
+    el('contactEmailDisplay').textContent = appData.contactEmail ? `Contact : ${appData.contactEmail}` : '';
+    el('classOverlay').classList.add('open');
+  });
+  el('homeLinkBtn').addEventListener('click', ()=> el('classOverlay').classList.remove('open'));
+  el('saveSchoolBtn').addEventListener('click', ()=>{
+    requirePremium('Le nom d\'établissement personnalisé fait partie de l\'abonnement Premium.', ()=>{
+      appData.school = el('schoolInput').value.trim();
+      renderClassBadge();
+      saveData();
+    });
+  });
+  el('saveEmailBtn').addEventListener('click', ()=>{
+    appData.contactEmail = el('contactEmailInput').value.trim();
+    el('contactEmailDisplay').textContent = appData.contactEmail ? `Contact : ${appData.contactEmail}` : '';
+    saveData();
+  });
+  el('closeClassBtn').addEventListener('click', ()=> el('classOverlay').classList.remove('open'));
+  el('classOverlay').addEventListener('click', (e)=>{ if(e.target.id==='classOverlay') el('classOverlay').classList.remove('open'); });
+  el('classSelect').addEventListener('change', (e)=> switchClass(e.target.value));
+  el('addClassBtn').addEventListener('click', ()=>{
+    addClass(el('newClassInput').value);
+    el('newClassInput').value = '';
+  });
+  el('newClassInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ addClass(el('newClassInput').value); el('newClassInput').value=''; }
+  });
+  el('saveClassesBtn').addEventListener('click', ()=>{
+    saveData();
+    showNotice('Toutes tes classes sont enregistrées sur ce téléphone. Tu les retrouveras à ta prochaine ouverture de l\'appli.', 'Enregistré ✅');
+  });
+  el('openSettingsFromMenuBtn').addEventListener('click', ()=> requestOpenSettings(true));
+
+  // ---------- Incident log ----------
+  el('logIncidentBtn').addEventListener('click', ()=>{
+    incidentBtnVisibleUntil = performance.now() + INCIDENT_BTN_GRACE_MS;
+    el('incidentNameInput').value = '';
+    el('incidentOverlay').classList.add('open');
+    setTimeout(()=> el('incidentNameInput').focus(), 100);
+  });
+  el('cancelIncidentBtn').addEventListener('click', ()=> el('incidentOverlay').classList.remove('open'));
+  el('incidentOverlay').addEventListener('click', (e)=>{ if(e.target.id==='incidentOverlay') el('incidentOverlay').classList.remove('open'); });
+  el('saveIncidentBtn').addEventListener('click', ()=>{
+    saveIncident(el('incidentNameInput').value);
+    el('incidentOverlay').classList.remove('open');
+    incidentBtnVisibleUntil = 0;
+  });
+  el('incidentNameInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      saveIncident(el('incidentNameInput').value);
+      el('incidentOverlay').classList.remove('open');
+      incidentBtnVisibleUntil = 0;
+    }
+  });
+
+  el('openIncidentLogBtn').addEventListener('click', ()=>{
+    requirePremium('Le journal d\'incidents fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      renderIncidentLog();
+      el('incidentLogOverlay').classList.add('open');
+    });
+  });
+  el('closeIncidentLogBtn').addEventListener('click', ()=> el('incidentLogOverlay').classList.remove('open'));
+  el('backFromIncidentLogBtn').addEventListener('click', ()=>{
+    el('incidentLogOverlay').classList.remove('open');
+    renderClassSelect(); renderRecapTable(); renderNextRewardHint();
+    el('classOverlay').classList.add('open');
+  });
+  el('incidentLogOverlay').addEventListener('click', (e)=>{ if(e.target.id==='incidentLogOverlay') el('incidentLogOverlay').classList.remove('open'); });
+  el('clearIncidentsBtn').addEventListener('click', ()=>{
+    const cls = getCurrentClassObj();
+    cls.incidents = [];
+    saveData();
+    renderIncidentLog();
+  });
+
+  // ---------- Rewards catalogue ----------
+  el('openRewardsBtn').addEventListener('click', ()=>{
+    requirePremium('Le catalogue de récompenses fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      renderRewardsTable();
+      el('rewardsOverlay').classList.add('open');
+    });
+  });
+  el('closeRewardsBtn').addEventListener('click', ()=> el('rewardsOverlay').classList.remove('open'));
+  // ---------- Rename / delete confirm / notice ----------
+  el('confirmRenameBtn').addEventListener('click', commitRename);
+  el('cancelRenameBtn').addEventListener('click', ()=>{ el('renameOverlay').classList.remove('open'); pendingRenameClass = null; pendingRenameLesson = null; pendingRenameSubject = null; });
+  el('renameOverlay').addEventListener('click', (e)=>{ if(e.target.id==='renameOverlay'){ el('renameOverlay').classList.remove('open'); pendingRenameClass = null; pendingRenameLesson = null; pendingRenameSubject = null; } });
+  el('renameInput').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') commitRename(); });
+
+  el('confirmDeleteBtn').addEventListener('click', commitDelete);
+  el('cancelDeleteBtn').addEventListener('click', ()=>{ el('deleteConfirmOverlay').classList.remove('open'); pendingDeleteClass = null; });
+  el('deleteConfirmOverlay').addEventListener('click', (e)=>{ if(e.target.id==='deleteConfirmOverlay'){ el('deleteConfirmOverlay').classList.remove('open'); pendingDeleteClass = null; } });
+
+  el('closeNoticeBtn').addEventListener('click', ()=> el('noticeOverlay').classList.remove('open'));
+  el('noticeOverlay').addEventListener('click', (e)=>{ if(e.target.id==='noticeOverlay') el('noticeOverlay').classList.remove('open'); });
+
+  el('backFromRewardsBtn').addEventListener('click', ()=>{
+    el('rewardsOverlay').classList.remove('open');
+    renderClassSelect(); renderRecapTable(); renderNextRewardHint();
+    el('classOverlay').classList.add('open');
+  });
+  el('rewardsOverlay').addEventListener('click', (e)=>{ if(e.target.id==='rewardsOverlay') el('rewardsOverlay').classList.remove('open'); });
+  el('addRewardBtn').addEventListener('click', ()=>{
+    const pts = parseInt(el('rewardPointsInput').value);
+    const label = el('rewardLabelInput').value.trim();
+    if(!pts || !label) return;
+    appData.rewards.push({points:pts, label});
+    saveData();
+    renderRewardsTable();
+    renderNextRewardHint();
+    el('rewardPointsInput').value = ''; el('rewardLabelInput').value = '';
+  });
+
+  // ---------- Backup / restore ----------
+  el('openBackupBtn').addEventListener('click', ()=>{
+    requirePremium('La sauvegarde/restauration fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      el('backupOverlay').classList.add('open');
+    });
+  });
+  el('closeBackupBtn').addEventListener('click', ()=> el('backupOverlay').classList.remove('open'));
+  el('backFromBackupBtn').addEventListener('click', ()=>{
+    el('backupOverlay').classList.remove('open');
+    renderClassSelect(); renderRecapTable(); renderNextRewardHint();
+    el('classOverlay').classList.add('open');
+  });
+  el('backupOverlay').addEventListener('click', (e)=>{ if(e.target.id==='backupOverlay') el('backupOverlay').classList.remove('open'); });
+  el('exportDataBtn').addEventListener('click', exportData);
+  el('importDataTriggerBtn').addEventListener('click', ()=> el('importDataInput').click());
+  el('importDataInput').addEventListener('change', (e)=>{
+    if(e.target.files && e.target.files[0]) importDataFromFile(e.target.files[0]);
+  });
+
+  // ---------- Weekly report ----------
+  el('openReportBtn').addEventListener('click', ()=>{
+    requirePremium('Le rapport hebdomadaire (avec export PDF) fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      buildWeeklyReport();
+      el('reportOverlay').classList.add('open');
+    });
+  });
+  el('closeReportBtn').addEventListener('click', ()=> el('reportOverlay').classList.remove('open'));
+  el('backFromReportBtn').addEventListener('click', ()=>{
+    el('reportOverlay').classList.remove('open');
+    renderClassSelect(); renderRecapTable(); renderNextRewardHint();
+    el('classOverlay').classList.add('open');
+  });
+  el('reportOverlay').addEventListener('click', (e)=>{ if(e.target.id==='reportOverlay') el('reportOverlay').classList.remove('open'); });
+
+  // ---------- PIN lock ----------
+  el('savePinBtn').addEventListener('click', ()=>{
+    requirePremium('Le verrouillage PIN fait partie de l\'abonnement Premium.', ()=>{
+      const val = el('pinInput').value.trim();
+      appData.settingsPin = val;
+      el('pinStatusText').textContent = val ? '🔒 Un code PIN est actif.' : 'Aucun code PIN défini.';
+      saveData();
+      showNotice(val ? 'Code PIN enregistré.' : 'Code PIN retiré.', 'Terminé');
+    });
+  });
+
+  el('saveFirebaseBtn').addEventListener('click', ()=>{
+    requirePremium('La surveillance à distance (tableau de bord central) fait partie de l\'abonnement Premium.', ()=>{
+      const cfg = {
+        apiKey: el('fbApiKeyInput').value.trim(),
+        authDomain: el('fbAuthDomainInput').value.trim(),
+        databaseURL: el('fbDatabaseURLInput').value.trim(),
+        projectId: el('fbProjectIdInput').value.trim(),
+        storageBucket: el('fbStorageBucketInput').value.trim(),
+        messagingSenderId: el('fbSenderIdInput').value.trim(),
+        appId: el('fbAppIdInput').value.trim()
+      };
+      if(!cfg.apiKey || !cfg.databaseURL){
+        showNotice('Il manque au moins apiKey et databaseURL pour activer la surveillance à distance.', 'Configuration incomplète');
+        return;
+      }
+      try{ localStorage.setItem('tamtam-firebase-config', JSON.stringify(cfg)); }catch(e){}
+      showNotice("Configuration enregistrée. L'appli va redémarrer pour l'appliquer.", 'Terminé');
+      setTimeout(()=> location.reload(), 1200);
+    });
+  });
+
+  // ---------- Subscription activation ----------
+  el('activateLicenseBtn').addEventListener('click', ()=>{
+    const result = validateLicenseCode(el('licenseCodeInput').value);
+    if(!result){
+      showNotice("Ce code n'est pas valide ou a expiré. Vérifie-le ou contacte AYH sur WhatsApp (98 31 10 80).", 'Code invalide');
+      return;
+    }
+    appData.license = result;
+    saveData();
+    renderSubscriptionStatus();
+    el('licenseCodeInput').value = '';
+    showNotice('Abonnement Premium activé, merci !', 'Bienvenue 💎');
+  });
+
+  el('closeUpgradeBtn').addEventListener('click', ()=>{
+    el('upgradeOverlay').classList.remove('open');
+    pendingPremiumAction = null;
+  });
+  el('upgradeOverlay').addEventListener('click', (e)=>{ if(e.target.id==='upgradeOverlay'){ el('upgradeOverlay').classList.remove('open'); pendingPremiumAction = null; } });
+  el('upgradeWhatsappBtn').addEventListener('click', ()=>{
+    const msg = "Bonjour, je suis intéressé(e) par l'abonnement Premium de Tam-Tam Silence.";
+    window.open(`https://wa.me/22898311080?text=${encodeURIComponent(msg)}`, '_blank');
+  });
+  el('upgradeHaveCodeBtn').addEventListener('click', ()=>{
+    el('upgradeOverlay').classList.remove('open');
+    pendingPremiumAction = null;
+    syncSettingsUI();
+    el('overlay').classList.add('open');
+    setTimeout(()=> el('licenseCodeInput').focus(), 150);
+  });
+
+  el('disableFirebaseBtn').addEventListener('click', ()=>{
+    try{ localStorage.setItem('tamtam-firebase-config', JSON.stringify({disabled:true})); }catch(e){}
+    showNotice("Surveillance à distance désactivée sur cette copie. L'appli va redémarrer.", 'Terminé');
+    setTimeout(()=> location.reload(), 1200);
+  });
+  el('pinGateConfirmBtn').addEventListener('click', ()=>{
+    if(el('pinGateInput').value.trim() === appData.settingsPin){
+      el('pinGateOverlay').classList.remove('open');
+      if(pendingSettingsOpen){ syncSettingsUI(); el('overlay').classList.add('open'); pendingSettingsOpen = false; }
+    } else {
+      showNotice('Code incorrect, réessaie.', 'Accès refusé');
+    }
+  });
+  el('pinGateCancelBtn').addEventListener('click', ()=>{
+    el('pinGateOverlay').classList.remove('open');
+    pendingSettingsOpen = false;
+  });
+  el('pinGateInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') el('pinGateConfirmBtn').click(); });
+
+  el('vibrationToggle').addEventListener('change', (e)=>{
+    appData.vibrationEnabled = e.target.checked;
+    saveData();
+  });
+
+  // ---------- Leaderboard ----------
+  el('openLeaderboardBtn').addEventListener('click', ()=>{
+    requirePremium('Le classement des classes fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      renderLeaderboard();
+      el('leaderboardOverlay').classList.add('open');
+    });
+  });
+  el('closeLeaderboardBtn').addEventListener('click', ()=> el('leaderboardOverlay').classList.remove('open'));
+  el('leaderboardOverlay').addEventListener('click', (e)=>{ if(e.target.id==='leaderboardOverlay') el('leaderboardOverlay').classList.remove('open'); });
+  el('backFromLeaderboardBtn').addEventListener('click', ()=>{
+    el('leaderboardOverlay').classList.remove('open');
+    renderClassSelect(); renderRecapTable(); renderNextRewardHint();
+    el('classOverlay').classList.add('open');
+  });
+
+  // ---------- Schedule ----------
+  el('openScheduleBtn').addEventListener('click', ()=>{
+    requirePremium('L\'emploi du temps automatique fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      renderScheduleTable();
+      el('scheduleOverlay').classList.add('open');
+    });
+  });
+  el('closeScheduleBtn').addEventListener('click', ()=> el('scheduleOverlay').classList.remove('open'));
+  el('scheduleOverlay').addEventListener('click', (e)=>{ if(e.target.id==='scheduleOverlay') el('scheduleOverlay').classList.remove('open'); });
+  el('backFromScheduleBtn').addEventListener('click', ()=>{
+    el('scheduleOverlay').classList.remove('open');
+    renderClassSelect(); renderRecapTable(); renderNextRewardHint();
+    el('classOverlay').classList.add('open');
+  });
+  el('addScheduleBtn').addEventListener('click', ()=>{
+    const day = parseInt(el('scheduleDaySelect').value);
+    const start = el('scheduleStartInput').value;
+    const end = el('scheduleEndInput').value;
+    const className = el('scheduleClassSelect').value;
+    if(!start || !end || start >= end){ showNotice("Vérifie que l'heure de fin est après l'heure de début.", 'Horaire invalide'); return; }
+    appData.schedule.push({day, start, end, className});
+    saveData();
+    renderScheduleTable();
+  });
+  setInterval(checkSchedule, 30000);
+  checkSchedule();
+
+  // ---------- Class period timer ----------
+  function getClassTimerSelectedMinutes(){
+    const raw = parseFloat(el('classTimerDurationInput').value);
+    if(!raw || raw <= 0) return null;
+    const unit = el('classTimerUnitSelect').value;
+    return unit === 'heures' ? Math.round(raw*60) : Math.round(raw);
+  }
+  el('openClassTimerBtn').addEventListener('click', ()=>{
+    requirePremium('Le minuteur de cours avec rappels vocaux fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      renderClassTimerPanel();
+      el('classTimerOverlay').classList.add('open');
+    });
+  });
+  el('closeClassTimerBtn').addEventListener('click', ()=> el('classTimerOverlay').classList.remove('open'));
+  el('classTimerOverlay').addEventListener('click', (e)=>{ if(e.target.id==='classTimerOverlay') el('classTimerOverlay').classList.remove('open'); });
+  el('backFromClassTimerBtn').addEventListener('click', ()=>{
+    el('classTimerOverlay').classList.remove('open');
+    renderClassSelect(); renderRecapTable(); renderNextRewardHint();
+    el('classOverlay').classList.add('open');
+  });
+  el('saveCustomNameBtn').addEventListener('click', ()=>{
+    appData.classTimer.customName = el('classTimerCustomNameInput').value.trim();
+    saveData();
+    el('customNameStatus').textContent = appData.classTimer.customName
+      ? `Nom personnalisé actif : "${appData.classTimer.customName}"`
+      : "Aucun nom personnalisé — le choix ci-dessus sera utilisé.";
+    showNotice(appData.classTimer.customName ? 'Nom enregistré.' : 'Nom personnalisé retiré.', 'Terminé');
+  });
+
+  // ---------- Teacher's journal ----------
+  // ---------- Staff schedule (tableau de service) ----------
+  el('openStaffScheduleBtn').addEventListener('click', ()=>{
+    requirePremium('Le tableau de service fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      cancelEditStaffRequirement();
+      renderTeachersList();
+      renderStaffTeacherSelect();
+      renderStaffSubjectSelect();
+      renderStaffClassSelect();
+      renderStaffRequirementsList();
+      renderStaffScheduleDay();
+      renderStaffRecapTeacherSelect();
+      renderStaffRecapGrid();
+      document.querySelectorAll('#staffNoAfternoonChecks input').forEach(cb=>{
+        cb.checked = appData.staffSchedule.noAfternoonDays.includes(parseInt(cb.value));
+      });
+      document.querySelectorAll('#staffReqDayChecks input').forEach(cb=> cb.checked = true);
+      el('staffScheduleOverlay').classList.add('open');
+    });
+  });
+  el('closeStaffScheduleBtn').addEventListener('click', ()=> el('staffScheduleOverlay').classList.remove('open'));
+  el('staffScheduleOverlay').addEventListener('click', (e)=>{ if(e.target.id==='staffScheduleOverlay') el('staffScheduleOverlay').classList.remove('open'); });
+  el('backFromStaffScheduleBtn').addEventListener('click', ()=>{
+    el('staffScheduleOverlay').classList.remove('open');
+    renderClassSelect(); renderRecapTable(); renderNextRewardHint();
+    el('classOverlay').classList.add('open');
+  });
+  el('addTeacherBtn').addEventListener('click', ()=>{
+    const name = el('teacherNameInput').value.trim();
+    if(!name) return;
+    if(appData.staffSchedule.teachers.includes(name)){
+      showNotice('Cet enseignant est déjà dans la liste.', 'Info');
+      return;
+    }
+    appData.staffSchedule.teachers.push(name);
+    saveData();
+    el('teacherNameInput').value = '';
+    renderTeachersList();
+    renderStaffTeacherSelect();
+    renderStaffRecapTeacherSelect();
+  });
+  el('teacherNameInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter') el('addTeacherBtn').click();
+  });
+
+  el('addStaffRequirementBtn').addEventListener('click', ()=>{
+    const teacher = el('staffTeacherSelect').value;
+    const subject = el('staffSubjectSelect').value;
+    const className = el('staffClassSelect').value;
+    const sessionsPerWeek = parseInt(el('staffSessionsInput').value);
+    const days = [...document.querySelectorAll('#staffReqDayChecks input:checked')].map(c=> parseInt(c.value));
+    if(!teacher){ showNotice('Ajoute au moins un enseignant.', 'Info'); return; }
+    if(!className){ showNotice('Ajoute au moins une classe.', 'Info'); return; }
+    if(!sessionsPerWeek || sessionsPerWeek < 1){ showNotice('Indique un nombre de leçons par semaine valide.', 'Info'); return; }
+    if(!days.length){ showNotice('Coche au moins un jour autorisé.', 'Info'); return; }
+
+    if(editingRequirementId){
+      const req = appData.staffSchedule.requirements.find(r=> r.id === editingRequirementId);
+      if(req){ req.teacher=teacher; req.subject=subject; req.className=className; req.sessionsPerWeek=sessionsPerWeek; req.days=days; }
+      saveData();
+      cancelEditStaffRequirement();
+      renderStaffRequirementsList();
+      showNotice('Besoin mis à jour.', 'Terminé');
+      return;
+    }
+
+    appData.staffSchedule.requirements.push({
+      id: 'req_'+Date.now()+'_'+Math.floor(Math.random()*10000),
+      teacher, subject, className, sessionsPerWeek, days
+    });
+    saveData();
+    el('staffSessionsInput').value = '';
+    renderStaffRequirementsList();
+  });
+  el('cancelEditRequirementBtn').addEventListener('click', cancelEditStaffRequirement);
+
+  document.querySelectorAll('#staffNoAfternoonChecks input').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      appData.staffSchedule.noAfternoonDays = [...document.querySelectorAll('#staffNoAfternoonChecks input:checked')].map(c=> parseInt(c.value));
+      saveData();
+    });
+  });
+
+  el('generateStaffScheduleBtn').addEventListener('click', ()=>{
+    if(!appData.staffSchedule.requirements.length){
+      showNotice('Ajoute au moins un besoin hebdomadaire avant de générer.', 'Info');
+      return;
+    }
+    const unplaced = generateStaffSchedule();
+    renderStaffScheduleDay();
+    renderStaffRecapGrid();
+    if(unplaced.length){
+      showNotice(`Tableau généré, mais ${unplaced.length} séance(s) n'ont pas pu être placées faute de créneau libre :\n${unplaced.join('\n')}`, 'Génération partielle');
+    } else {
+      showNotice('Le tableau de service a été généré avec succès, sans conflit.', 'Terminé ✅');
+    }
+  });
+
+  el('addStaffEntryBtn').addEventListener('click', ()=>{
+    const teacher = el('staffTeacherSelect').value;
+    if(!teacher){ showNotice('Ajoute au moins un enseignant.', 'Info'); return; }
+    const day = parseInt(el('staffDaySelect').value);
+    const start = el('staffStartInput').value;
+    if(!start){ showNotice('Choisis une heure de début.', 'Info'); return; }
+    if(start < '07:00' || start >= '18:00'){ showNotice('Les séances doivent commencer entre 7h et 18h.', 'Horaire invalide'); return; }
+    if(isBlockedAfternoon(day, start)){
+      showNotice(`Pas de cours l'après-midi le ${DAY_NAMES[day]}.`, 'Après-midi bloqué');
+      return;
+    }
+    const duration = parseInt(el('staffDurationSelect').value);
+    const end = addMinutesToTime(start, duration);
+    const subject = el('staffSubjectSelect').value;
+    const className = el('staffClassSelect').value;
+
+    const teacherConflict = appData.staffSchedule.entries.some(e=>
+      e.teacher === teacher && e.day === day && start < e.end && end > e.start
+    );
+    if(teacherConflict){
+      showNotice(`${teacher} a déjà une séance sur ce créneau ce jour-là.`, 'Conflit d\'horaire');
+      return;
+    }
+    const classConflict = appData.staffSchedule.entries.some(e=>
+      e.className === className && e.day === day && start < e.end && end > e.start
+    );
+    if(classConflict){
+      showNotice(`La classe ${className} a déjà une autre séance sur ce créneau.`, 'Conflit d\'horaire');
+      return;
+    }
+
+    appData.staffSchedule.entries.push({
+      id: 'se_' + Date.now() + '_' + Math.floor(Math.random()*10000),
+      teacher, day, start, end, subject, className
+    });
+    saveData();
+    el('staffViewDaySelect').value = String(day);
+    renderStaffScheduleDay();
+    renderStaffRecapGrid();
+    showNotice(`Séance ajoutée pour ${teacher}, ${DAY_NAMES[day]} ${start}-${end}.`, 'Terminé');
+  });
+  el('staffViewDaySelect').addEventListener('change', renderStaffScheduleDay);
+  el('staffRecapTeacherSelect').addEventListener('change', renderStaffRecapGrid);
+  el('staffExportPdfBtn').addEventListener('click', exportStaffSchedulePDF);
+  el('staffSharePdfBtn').addEventListener('click', shareStaffSchedulePDF);
+
+  el('openJournalBtn').addEventListener('click', ()=>{
+    requirePremium('Le journal du professeur fait partie de l\'abonnement Premium.', ()=>{
+      el('classOverlay').classList.remove('open');
+      renderSubjectsList();
+      renderJournalSubjectSelect();
+      renderLessonTitlesList();
+      renderJournalClassSelect();
+      renderJournalLessonSelect();
+      renderJournalLists();
+      cancelEditJournalEntry();
+      el('journalReportText').style.display = 'none';
+      el('journalShareWhatsappBtn').style.display = 'none';
+      el('journalExportPdfBtn').style.display = 'none';
+      el('journalOverlay').classList.add('open');
+    });
+  });
+  el('closeJournalBtn').addEventListener('click', ()=> el('journalOverlay').classList.remove('open'));
+  el('journalOverlay').addEventListener('click', (e)=>{ if(e.target.id==='journalOverlay') el('journalOverlay').classList.remove('open'); });
+  el('backFromJournalBtn').addEventListener('click', ()=>{
+    el('journalOverlay').classList.remove('open');
+    renderClassSelect(); renderRecapTable(); renderNextRewardHint();
+    el('classOverlay').classList.add('open');
+  });
+  el('addSubjectBtn').addEventListener('click', ()=>{
+    const subject = el('subjectInput').value.trim();
+    if(!subject) return;
+    if(appData.journal.subjects.includes(subject)){
+      showNotice('Cette matière existe déjà.', 'Info');
+      return;
+    }
+    appData.journal.subjects.push(subject);
+    saveData();
+    el('subjectInput').value = '';
+    renderSubjectsList();
+    renderJournalSubjectSelect();
+  });
+  el('subjectInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter') el('addSubjectBtn').click();
+  });
+  el('addLessonTitleBtn').addEventListener('click', ()=>{
+    const title = el('lessonTitleInput').value.trim();
+    if(!title) return;
+    if(appData.journal.lessons.includes(title)){
+      showNotice('Cette leçon existe déjà.', 'Info');
+      return;
+    }
+    appData.journal.lessons.push(title);
+    saveData();
+    el('lessonTitleInput').value = '';
+    renderLessonTitlesList();
+    renderJournalLessonSelect();
+  });
+  el('lessonTitleInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter') el('addLessonTitleBtn').click();
+  });
+  el('lessonBannerClose').addEventListener('click', ()=>{
+    appData.journal.activeLessonTitle = '';
+    saveData();
+    renderLessonBanner();
+  });
+  el('saveJournalEntryBtn').addEventListener('click', ()=>{
+    const subject = el('journalSubjectSelect').value;
+    const className = el('journalClassSelect').value;
+    const lessonTitle = el('journalLessonSelect').value;
+    const interroCount = parseInt(el('journalInterroInput').value) || 0;
+    const levelReached = el('journalLevelInput').value.trim();
+    const notes = el('journalNotesInput').value.trim();
+    if(!className){ showNotice('Choisis une classe.', 'Info'); return; }
+
+    if(editingJournalEntryId){
+      const entry = appData.journal.entries.find(en=> en.id === editingJournalEntryId);
+      if(entry){
+        entry.subject = subject; entry.className = className; entry.lessonTitle = lessonTitle;
+        entry.interroCount = interroCount; entry.levelReached = levelReached; entry.notes = notes;
+      }
+      saveData();
+      cancelEditJournalEntry();
+      renderJournalLists();
+      showNotice('Entrée mise à jour.', 'Terminé');
+      return;
+    }
+
+    appData.journal.entries.push({
+      id: 'je_' + Date.now() + '_' + Math.floor(Math.random()*10000),
+      date: todayStr(), subject, className, lessonTitle, interroCount, levelReached, notes, timestamp: Date.now()
+    });
+    saveData();
+    el('journalSubjectSelect').value = '';
+    el('journalLessonSelect').value = '';
+    el('journalInterroInput').value = '';
+    el('journalLevelInput').value = '';
+    el('journalNotesInput').value = '';
+    renderJournalLists();
+    showNotice('Entrée du journal enregistrée.', 'Terminé');
+  });
+  el('cancelEditEntryBtn').addEventListener('click', cancelEditJournalEntry);
+
+  let journalReportScope = 'today';
+  function showJournalReport(scope){
+    journalReportScope = scope;
+    const text = buildJournalReportText(scope);
+    el('journalReportText').textContent = text;
+    el('journalReportText').style.display = 'block';
+    el('journalShareWhatsappBtn').style.display = 'block';
+    el('journalExportPdfBtn').style.display = 'block';
+  }
+  el('journalReportTodayBtn').addEventListener('click', ()=> showJournalReport('today'));
+  el('journalReportWeekBtn').addEventListener('click', ()=> showJournalReport('week'));
+  el('journalShareWhatsappBtn').addEventListener('click', ()=>{
+    const text = el('journalReportText').textContent;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  });
+  el('journalExportPdfBtn').addEventListener('click', ()=> exportJournalPDF(journalReportScope));
+
+  el('saveStartClassTimerBtn').addEventListener('click', ()=>{
+    const minutes = getClassTimerSelectedMinutes();
+    if(!minutes){ showNotice('Indique une durée valide (en minutes ou en heures).', 'Durée manquante'); return; }
+    const title = el('classTimerTitleSelect').value;
+    const endMessage = el('classTimerEndMsgSelect').value;
+    startClassTimer(minutes, title, endMessage);
+    renderClassTimerPanel();
+    showNotice(`Minuteur démarré pour ${fmtClassTimer(minutes*60000)}.`, 'C\'est parti ⏱️');
+  });
+  el('stopClassTimerBtn').addEventListener('click', ()=>{
+    stopClassTimer();
+    renderClassTimerPanel();
+  });
+  initClassTimerAlertState();
+  setInterval(tickClassTimer, 1000);
+  tickClassTimer();
+
+  el('shareReportBtn').addEventListener('click', ()=>{
+    const text = el('reportText').textContent;
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  });
+  el('exportPdfBtn').addEventListener('click', exportReportPDF);
+
+  // ---------- Projector mode ----------
+  el('projectorModeBtn').addEventListener('click', ()=>{
+    el('classOverlay').classList.remove('open');
+    document.body.classList.add('projector');
+  });
+  el('exitProjectorBtn').addEventListener('click', ()=> document.body.classList.remove('projector'));
+
+  // ---------- Alarm style & language ----------
+  el('alarmStyleSelect').addEventListener('change', (e)=>{
+    appData.alarmStyle = e.target.value;
+    saveData();
+  });
+  el('languageToggle').addEventListener('change', (e)=>{
+    appData.language = e.target.checked ? 'ewe' : 'fr';
+    saveData();
+  });
+  el('saveEweBtn').addEventListener('click', ()=>{
+    appData.eweWords = {
+      calme: el('eweCalmeInput').value.trim(),
+      attention: el('eweAttentionInput').value.trim(),
+      bruit: el('eweBruitInput').value.trim(),
+      alarme: el('eweAlarmInput').value.trim()
+    };
+    saveData();
+  });
+
+  // ---------- Challenge mode ----------
+  el('challengeBtn').addEventListener('click', ()=>{
+    challengeSelectedMinutes = null;
+    document.querySelectorAll('#durationGrid button').forEach(b=>b.classList.remove('selected'));
+    el('challengeOverlay').classList.add('open');
+  });
+  el('cancelChallengeBtn').addEventListener('click', ()=> el('challengeOverlay').classList.remove('open'));
+  document.querySelectorAll('#durationGrid button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#durationGrid button').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      challengeSelectedMinutes = parseInt(btn.dataset.min);
+    });
+  });
+
+  async function launchChallenge(){
+    const minutes = challengeSelectedMinutes || 2;
+    el('challengeOverlay').classList.remove('open');
+    if(!running){
+      const ok = await startMic();
+      if(!ok) return;
+      running = true; lastTick = null;
+      challengeAutoStarted = true;
+      rafId = requestAnimationFrame(tick);
+    }
+    challengeActive = true;
+    challengeTotal = minutes*60;
+    challengeRemaining = minutes*60;
+    el('challengeClassLabel').textContent = appData.currentClass;
+    challengeCountdown.textContent = fmtTime(challengeRemaining);
+    challengeMsg.textContent = 'C\'est parti, silence total !';
+    challengeScreen.classList.add('open');
+  }
+  el('launchChallengeBtn').addEventListener('click', launchChallenge);
+
+  function endChallengeSession(){
+    if(challengeAutoStarted){
+      running = false;
+      stopMic();
+      toggleBtn.textContent = '▶️ Démarrer';
+      toggleBtn.classList.remove('btn-stop');
+      toggleBtn.classList.add('btn-start');
+      statusWord.textContent = 'EN PAUSE';
+      statusSub.textContent = 'Appuie sur Démarrer';
+      levelNumber.textContent = '--';
+      challengeAutoStarted = false;
+    }
+  }
+
+  el('abandonChallengeBtn').addEventListener('click', ()=>{
+    challengeActive = false;
+    challengeScreen.classList.remove('open');
+    endChallengeSession();
+  });
+
+  function completeChallenge(){
+    challengeActive = false;
+    challengeScreen.classList.remove('open');
+    const cls = getCurrentClassObj();
+    cls.points = (cls.points||0) + 5;
+    cls.challengesWon = (cls.challengesWon||0) + 1;
+    if(!cls.challengeLog) cls.challengeLog = [];
+    cls.challengeLog.push({timestamp: Date.now(), minutes: challengeTotal/60});
+    points = cls.points;
+    pointsValue.textContent = `${points} ⭐`;
+    saveData();
+    el('challengeSuccessDetail').textContent = `${appData.currentClass} a tenu ${fmtTime(challengeTotal)} de silence. +5 points !`;
+    challengeSuccess.classList.add('open');
+  }
+  el('challengeSuccessBtn').addEventListener('click', ()=>{
+    challengeSuccess.classList.remove('open');
+    endChallengeSession();
+  });
+
+  loadData().then(()=> initClassTimerAlertState());
+})();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
