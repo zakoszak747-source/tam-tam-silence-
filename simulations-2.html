@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Simulations Scientifiques — Tam-Tam Silence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --calme:#00A85E; --attention:#FFD100; --bruit:#D21034;
+    --wood:#1c140d; --wood-light:#2f2216; --wood-card:#382a1a;
+    --cream:#F4EFE6; --cream-dim:#c7bba5;
+    --svt:#4CAF7D; --physique:#5B8FD9; --chimie:#C77DD9; --maths:#D9A85B; --techno:#D95B7D;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--wood); color:var(--cream); font-family:'Fredoka',sans-serif; overflow-x:hidden;}
+  body{min-height:100vh; min-height:100dvh; padding-bottom:30px;}
+  h1,h2,h3{margin:0;}
+  button{font-family:'Fredoka',sans-serif; cursor:pointer; color:inherit;}
+
+  header{
+    position:sticky; top:0; z-index:20;
+    background:rgba(28,20,13,0.92); backdrop-filter:blur(10px);
+    border-bottom:1px solid rgba(244,239,230,0.08);
+    padding:12px 16px; display:flex; align-items:center; gap:10px;
+  }
+  .back-btn{
+    background:var(--wood-light); border:1px solid rgba(244,239,230,0.15); color:var(--cream);
+    width:36px; height:36px; border-radius:10px; font-size:16px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  }
+  .breadcrumb{font-size:12.5px; color:var(--cream-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .breadcrumb b{color:var(--cream); font-weight:600;}
+
+  main{max-width:560px; margin:0 auto; padding:20px 16px;}
+
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .intro{margin-bottom:20px;}
+  .intro h2{font-size:20px; font-weight:700;}
+  .intro p{color:var(--cream-dim); font-size:13.5px; margin-top:6px; line-height:1.5;}
+
+  .card-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .disc-card{
+    background:var(--wood-card); border:1.5px solid rgba(244,239,230,0.1);
+    border-radius:18px; padding:20px 14px; text-align:center;
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    transition:transform 0.15s ease, border-color 0.2s ease;
+  }
+  .disc-card:active{transform:scale(0.97);}
+  .disc-card .icon{font-size:32px;}
+  .disc-card .name{font-weight:600; font-size:14px; color:var(--cream);}
+  .disc-card .count{font-size:11px; color:var(--cream-dim);}
+  .disc-card.svt{border-color:rgba(76,175,125,0.4);}
+
+  .theme-list, .exp-list{display:flex; flex-direction:column; gap:10px;}
+  .list-item{
+    background:var(--wood-card); border:1.5px solid rgba(244,239,230,0.1);
+    border-radius:14px; padding:15px 16px; display:flex; align-items:center; gap:12px;
+    text-align:left; width:100%;
+  }
+  .list-item .li-icon{font-size:22px; flex-shrink:0;}
+  .list-item .li-body{flex:1; min-width:0;}
+  .list-item .li-title{font-weight:600; font-size:14.5px; color:var(--cream);}
+  .list-item .li-sub{font-size:11.5px; color:var(--cream-dim); margin-top:2px;}
+  .list-item .li-arrow{color:var(--cream-dim); font-size:16px; flex-shrink:0;}
+  .list-item.locked{opacity:0.55;}
+  .list-item.locked .li-sub{color:var(--attention);}
+
+  .soon-box{
+    text-align:center; padding:50px 20px; color:var(--cream-dim);
+  }
+  .soon-box .emoji{font-size:44px; margin-bottom:14px;}
+  .soon-box p{font-size:13.5px; line-height:1.5; max-width:320px; margin:0 auto;}
+
+  /* --- Simulation shell --- */
+  .sim-header{margin-bottom:16px;}
+  .sim-header h2{font-size:19px; font-weight:700;}
+  .sim-header p{color:var(--cream-dim); font-size:13px; margin-top:4px; line-height:1.5;}
+  .sim-stage{
+    background:var(--wood-card); border:1px solid rgba(244,239,230,0.1);
+    border-radius:18px; padding:16px; margin-bottom:16px;
+  }
+  .sim-controls{display:flex; flex-direction:column; gap:12px;}
+  .ctrl-row{display:flex; align-items:center; gap:10px;}
+  .ctrl-row label{font-size:12.5px; color:var(--cream-dim); min-width:110px;}
+  .ctrl-row input[type=range]{flex:1; accent-color:var(--calme);}
+  .btn-row{display:flex; gap:10px; margin-top:6px;}
+  .btn-row button{
+    flex:1; padding:12px; border-radius:12px; border:none; font-weight:600; font-size:13.5px;
+  }
+  .btn-primary{background:var(--calme); color:white;}
+  .btn-secondary{background:var(--wood-light); color:var(--cream); border:1px solid rgba(244,239,230,0.15) !important;}
+
+  canvas{width:100%; display:block; border-radius:12px; background:#0f0a06;}
+
+  .legend{display:flex; gap:16px; margin-top:10px; font-size:11.5px; color:var(--cream-dim); flex-wrap:wrap;}
+  .legend span{display:inline-flex; align-items:center; gap:5px;}
+  .legend .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
+
+  /* --- Mitose phase viewer --- */
+  .phase-stage{
+    display:flex; flex-direction:column; align-items:center; gap:12px;
+  }
+  .phase-name{font-family:'Space Grotesk'; font-weight:700; font-size:16px; color:var(--svt);}
+  .phase-desc{font-size:13px; color:var(--cream-dim); text-align:center; line-height:1.5; min-height:56px;}
+  .phase-nav{display:flex; align-items:center; gap:14px; margin-top:6px;}
+  .phase-nav button{
+    width:42px; height:42px; border-radius:50%; border:1px solid rgba(244,239,230,0.15);
+    background:var(--wood-light); color:var(--cream); font-size:18px;
+  }
+  .phase-dots{display:flex; gap:6px;}
+  .phase-dots span{width:8px; height:8px; border-radius:50%; background:rgba(244,239,230,0.2);}
+  .phase-dots span.active{background:var(--svt);}
+
+  footer{text-align:center; color:var(--cream-dim); font-size:11.5px; padding:20px;}
+
+  .subtab-row{display:flex; gap:8px; margin-bottom:14px;}
+  .subtab-row button{
+    flex:1; padding:11px; border-radius:12px; border:1px solid rgba(244,239,230,0.15);
+    background:var(--wood-light); color:var(--cream-dim); font-weight:600; font-size:13px;
+  }
+  .subtab-row button.active{background:var(--calme); color:white; border-color:var(--calme);}
+  .subview{display:none;}
+  .subview.active{display:block;}
+
+  .cell-svg-wrap{display:flex; justify-content:center; margin-bottom:14px;}
+  .cell-svg-wrap svg{max-width:100%; height:auto;}
+  .organelle{cursor:pointer; transition:opacity 0.15s ease;}
+  .organelle:hover, .organelle.selected{ filter:brightness(1.3); }
+  .cell-info-box{
+    background:var(--wood-card); border:1.5px solid var(--calme);
+    border-radius:14px; padding:14px 16px; min-height:70px;
+  }
+  .cell-info-box h3{font-size:14.5px; font-weight:700; color:var(--calme);}
+  .cell-info-box p{font-size:12.5px; color:var(--cream-dim); margin-top:5px; line-height:1.5;}
+  .cell-hint{font-size:11.5px; color:var(--cream-dim); text-align:center; margin-top:10px;}
+</style>
+</head>
+<body>
+
+<header>
+  <button class="back-btn" id="backBtn" style="visibility:hidden;">←</button>
+  <div class="breadcrumb" id="breadcrumb"><b>🔬 Simulations</b></div>
+</header>
+
+<main>
+
+  <!-- HOME: disciplines -->
+  <div class="view active" id="view-home">
+    <div class="intro">
+      <h2>Simulations scientifiques</h2>
+      <p>Choisis une discipline pour explorer ses thèmes et lancer des expériences interactives en classe.</p>
+    </div>
+    <div class="card-grid" id="disciplineGrid"></div>
+  </div>
+
+  <!-- THEMES -->
+  <div class="view" id="view-themes">
+    <div class="intro"><h2 id="themesTitle"></h2><p id="themesSub"></p></div>
+    <div class="theme-list" id="themeList"></div>
+  </div>
+
+  <!-- EXPERIMENTS -->
+  <div class="view" id="view-experiments">
+    <div class="intro"><h2 id="expTitle"></h2><p>Tape sur une expérience pour lancer la simulation.</p></div>
+    <div class="exp-list" id="expList"></div>
+  </div>
+
+  <!-- SOON -->
+  <div class="view" id="view-soon">
+    <div class="soon-box">
+      <div class="emoji">🧪</div>
+      <p id="soonText">Cette section arrive bientôt.</p>
+    </div>
+  </div>
+
+  <!-- SIM: Osmose -->
+  <div class="view" id="view-osmose">
+    <div class="sim-header">
+      <h2>💧 Osmose</h2>
+      <p>Deux compartiments séparés par une membrane perméable à l'eau, mais pas au soluté (points rouges). L'eau se déplace vers le côté le plus concentré jusqu'à l'équilibre.</p>
+    </div>
+    <div class="sim-stage">
+      <canvas id="osmoseCanvas" width="520" height="320"></canvas>
+      <div class="legend">
+        <span><i class="dot" style="background:#5B8FD9;"></i> Molécules d'eau</span>
+        <span><i class="dot" style="background:#D21034;"></i> Soluté (ne traverse pas)</span>
+      </div>
+    </div>
+    <div class="sim-controls">
+      <div class="ctrl-row">
+        <label>Concentration soluté</label>
+        <input type="range" id="osmoseConcSlider" min="10" max="90" value="60">
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" id="osmoseToggleBtn">▶️ Démarrer</button>
+        <button class="btn-secondary" id="osmoseResetBtn">↺ Réinitialiser</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: Diffusion -->
+  <div class="view" id="view-diffusion">
+    <div class="sim-header">
+      <h2>🌫️ Diffusion</h2>
+      <p>Sans membrane, les particules se déplacent aléatoirement (agitation thermique) et finissent par se répartir uniformément dans tout le volume — du plus concentré vers le moins concentré.</p>
+    </div>
+    <div class="sim-stage">
+      <canvas id="diffusionCanvas" width="520" height="320"></canvas>
+      <div class="legend">
+        <span><i class="dot" style="background:#FFD100;"></i> Particules de soluté</span>
+      </div>
+    </div>
+    <div class="sim-controls">
+      <div class="ctrl-row">
+        <label>Agitation (température)</label>
+        <input type="range" id="diffusionSpeedSlider" min="1" max="10" value="4">
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" id="diffusionToggleBtn">▶️ Démarrer</button>
+        <button class="btn-secondary" id="diffusionResetBtn">↺ Réinitialiser</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: Mitose -->
+  <div class="view" id="view-mitose">
+    <div class="sim-header">
+      <h2>🧬 Mitose</h2>
+      <p>Les étapes de la division cellulaire qui produit deux cellules filles identiques à la cellule mère. Avance phase par phase.</p>
+    </div>
+    <div class="sim-stage">
+      <canvas id="mitoseCanvas" width="520" height="300"></canvas>
+      <div class="phase-stage">
+        <div class="phase-name" id="mitosePhaseName"></div>
+        <div class="phase-desc" id="mitosePhaseDesc"></div>
+        <div class="phase-dots" id="mitoseDots"></div>
+        <div class="phase-nav">
+          <button id="mitosePrevBtn">←</button>
+          <button id="mitosePlayBtn" style="width:auto; padding:0 18px; border-radius:21px;">▶️ Lecture auto</button>
+          <button id="mitoseNextBtn">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: Méiose -->
+  <div class="view" id="view-meiose">
+    <div class="sim-header">
+      <h2>🧬 Méiose</h2>
+      <p>Deux divisions successives qui produisent 4 cellules filles haploïdes génétiquement différentes — à l'origine des gamètes (ovules, spermatozoïdes).</p>
+    </div>
+    <div class="sim-stage">
+      <canvas id="meioseCanvas" width="520" height="300"></canvas>
+      <div class="legend">
+        <span><i class="dot" style="background:#4CAF7D;"></i> Paire 1 (origine maternelle)</span>
+        <span><i class="dot" style="background:#A8E0C4;"></i> Paire 1 (origine paternelle)</span>
+        <span><i class="dot" style="background:#5B8FD9;"></i> Paire 2 (maternelle)</span>
+        <span><i class="dot" style="background:#AFCBEF;"></i> Paire 2 (paternelle)</span>
+      </div>
+      <div class="phase-stage">
+        <div class="phase-name" id="meiosePhaseName"></div>
+        <div class="phase-desc" id="meiosePhaseDesc"></div>
+        <div class="phase-dots" id="meioseDots"></div>
+        <div class="phase-nav">
+          <button id="meiosePrevBtn">←</button>
+          <button id="meiosePlayBtn" style="width:auto; padding:0 18px; border-radius:21px;">▶️ Lecture auto</button>
+          <button id="meioseNextBtn">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: ADN -->
+  <div class="view" id="view-adn">
+    <div class="sim-header">
+      <h2>🧬 ADN</h2>
+      <p>La molécule qui porte l'information génétique — structure en double hélice et mécanisme de réplication.</p>
+    </div>
+
+    <div class="subtab-row">
+      <button id="adnTabStructureBtn" class="active">🧱 Structure</button>
+      <button id="adnTabReplicationBtn">🔁 Réplication</button>
+    </div>
+
+    <!-- Structure -->
+    <div class="subview active" id="adnStructureView">
+      <div class="sim-stage">
+        <canvas id="adnStructureCanvas" width="520" height="300"></canvas>
+        <div class="legend">
+          <span><i class="dot" style="background:#D21034;"></i> Adénine (A)</span>
+          <span><i class="dot" style="background:#5B8FD9;"></i> Thymine (T)</span>
+          <span><i class="dot" style="background:#4CAF7D;"></i> Guanine (G)</span>
+          <span><i class="dot" style="background:#FFD100;"></i> Cytosine (C)</span>
+        </div>
+      </div>
+      <p style="color:var(--cream-dim); font-size:13px; line-height:1.6; margin-top:12px;">
+        L'ADN est formé de <b style="color:var(--cream);">deux brins antiparallèles</b> enroulés en double hélice, reliés par des liaisons hydrogène entre bases complémentaires :<br>
+        • <b style="color:var(--cream);">A</b> avec <b style="color:var(--cream);">T</b> (2 liaisons hydrogène)<br>
+        • <b style="color:var(--cream);">G</b> avec <b style="color:var(--cream);">C</b> (3 liaisons hydrogène)
+      </p>
+    </div>
+
+    <!-- Réplication -->
+    <div class="subview" id="adnReplicationView">
+      <div class="sim-stage">
+        <canvas id="adnReplicationCanvas" width="520" height="300"></canvas>
+        <div class="phase-stage">
+          <div class="phase-name" id="adnPhaseName"></div>
+          <div class="phase-desc" id="adnPhaseDesc"></div>
+          <div class="phase-dots" id="adnDots"></div>
+          <div class="phase-nav">
+            <button id="adnPrevBtn">←</button>
+            <button id="adnPlayBtn" style="width:auto; padding:0 18px; border-radius:21px;">▶️ Lecture auto</button>
+            <button id="adnNextBtn">→</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: Synthèse des protéines -->
+  <div class="view" id="view-proteines">
+    <div class="sim-header">
+      <h2>⚗️ Synthèse des protéines</h2>
+      <p>Comment l'information contenue dans l'ADN devient une protéine, en deux grandes étapes : transcription puis traduction.</p>
+    </div>
+    <div class="sim-stage">
+      <canvas id="proteinesCanvas" width="520" height="300"></canvas>
+      <div class="legend">
+        <span><i class="dot" style="background:#D21034;"></i> Met</span>
+        <span><i class="dot" style="background:#4CAF7D;"></i> Gly</span>
+        <span><i class="dot" style="background:#5B8FD9;"></i> Leu</span>
+        <span><i class="dot" style="background:#FFD100;"></i> ARNm / codon</span>
+      </div>
+      <div class="phase-stage">
+        <div class="phase-name" id="proteinesPhaseName"></div>
+        <div class="phase-desc" id="proteinesPhaseDesc"></div>
+        <div class="phase-dots" id="proteinesDots"></div>
+        <div class="phase-nav">
+          <button id="proteinesPrevBtn">←</button>
+          <button id="proteinesPlayBtn" style="width:auto; padding:0 18px; border-radius:21px;">▶️ Lecture auto</button>
+          <button id="proteinesNextBtn">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: Fonctionnement de la cellule -->
+  <div class="view" id="view-cellule">
+    <div class="sim-header">
+      <h2>🧫 Fonctionnement de la cellule</h2>
+      <p>Tape sur un organite pour découvrir son rôle.</p>
+    </div>
+    <div class="sim-stage">
+      <div class="cell-svg-wrap">
+        <svg id="cellSvg" viewBox="0 0 400 300" width="400" height="300">
+          <ellipse class="organelle" data-id="membrane" cx="200" cy="150" rx="180" ry="130" fill="rgba(76,175,125,0.06)" stroke="#4CAF7D" stroke-width="4"/>
+          <ellipse class="organelle" data-id="cytoplasme" cx="200" cy="150" rx="170" ry="122" fill="rgba(244,239,230,0.02)" stroke="none"/>
+          <path class="organelle" data-id="reticulum" data-name-ignore="1" d="M110,90 Q130,70 150,90 T190,90 T230,90" fill="none" stroke="#AFCBEF" stroke-width="6" stroke-linecap="round"/>
+          <path class="organelle" data-id="reticulum" d="M105,105 Q125,85 145,105 T185,105 T225,105" fill="none" stroke="#AFCBEF" stroke-width="6" stroke-linecap="round"/>
+          <g class="organelle" data-id="golgi">
+            <path d="M270,190 Q290,182 310,190" fill="none" stroke="#D9A85B" stroke-width="5" stroke-linecap="round"/>
+            <path d="M266,200 Q288,192 312,200" fill="none" stroke="#D9A85B" stroke-width="5" stroke-linecap="round"/>
+            <path d="M262,210 Q286,202 314,210" fill="none" stroke="#D9A85B" stroke-width="5" stroke-linecap="round"/>
+          </g>
+          <ellipse class="organelle" data-id="mitochondrie" cx="95" cy="200" rx="26" ry="15" fill="#D95B7D" opacity="0.85" transform="rotate(-20 95 200)"/>
+          <ellipse class="organelle" data-id="mitochondrie" cx="300" cy="95" rx="24" ry="14" fill="#D95B7D" opacity="0.85" transform="rotate(15 300 95)"/>
+          <circle class="organelle" data-id="ribosome" cx="150" cy="70" r="4" fill="#FFD100"/>
+          <circle class="organelle" data-id="ribosome" cx="165" cy="115" r="4" fill="#FFD100"/>
+          <circle class="organelle" data-id="ribosome" cx="240" cy="220" r="4" fill="#FFD100"/>
+          <circle class="organelle" data-id="ribosome" cx="90" cy="130" r="4" fill="#FFD100"/>
+          <circle class="organelle" data-id="noyau" cx="200" cy="160" r="55" fill="#5B8FD9" opacity="0.35" stroke="#5B8FD9" stroke-width="3"/>
+          <circle class="organelle" data-id="nucleole" cx="200" cy="160" r="16" fill="#5B8FD9" opacity="0.9"/>
+        </svg>
+      </div>
+      <div class="cell-info-box" id="cellInfoBox">
+        <h3>Cellule eucaryote</h3>
+        <p>Explore les différents organites en tapant dessus. Chacun a un rôle précis dans le fonctionnement de la cellule.</p>
+      </div>
+      <div class="cell-hint">Modèle générique — les mêmes principes s'appliquent aux cellules animales et végétales.</div>
+    </div>
+  </div>
+
+  <!-- SIM: Digestion -->
+  <div class="view" id="view-digestion">
+    <div class="sim-header">
+      <h2>🍽️ Digestion</h2>
+      <p>Le trajet des aliments à travers le tube digestif, de la bouche à l'élimination, et leur transformation en nutriments absorbables.</p>
+    </div>
+    <div class="sim-stage">
+      <canvas id="digestionCanvas" width="520" height="300"></canvas>
+      <div class="phase-stage">
+        <div class="phase-name" id="digestionPhaseName"></div>
+        <div class="phase-desc" id="digestionPhaseDesc"></div>
+        <div class="phase-dots" id="digestionDots"></div>
+        <div class="phase-nav">
+          <button id="digestionPrevBtn">←</button>
+          <button id="digestionPlayBtn" style="width:auto; padding:0 18px; border-radius:21px;">▶️ Lecture auto</button>
+          <button id="digestionNextBtn">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: Respiration -->
+  <div class="view" id="view-respiration">
+    <div class="sim-header">
+      <h2>🫁 Respiration</h2>
+      <p>Le trajet de l'air dans les poumons et les échanges gazeux (O₂ / CO₂) au niveau des alvéoles pulmonaires.</p>
+    </div>
+    <div class="sim-stage">
+      <canvas id="respirationCanvas" width="520" height="300"></canvas>
+      <div class="legend">
+        <span><i class="dot" style="background:#5B8FD9;"></i> O₂ (oxygène)</span>
+        <span><i class="dot" style="background:#D9A85B;"></i> CO₂ (dioxyde de carbone)</span>
+      </div>
+      <div class="phase-stage">
+        <div class="phase-name" id="respirationPhaseName"></div>
+        <div class="phase-desc" id="respirationPhaseDesc"></div>
+        <div class="phase-dots" id="respirationDots"></div>
+        <div class="phase-nav">
+          <button id="respirationPrevBtn">←</button>
+          <button id="respirationPlayBtn" style="width:auto; padding:0 18px; border-radius:21px;">▶️ Lecture auto</button>
+          <button id="respirationNextBtn">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: Circulation sanguine -->
+  <div class="view" id="view-circulation">
+    <div class="sim-header">
+      <h2>🩸 Circulation sanguine</h2>
+      <p>La double circulation : petit circuit (cœur ↔ poumons) et grand circuit (cœur ↔ organes).</p>
+    </div>
+    <div class="sim-stage">
+      <canvas id="circulationCanvas" width="520" height="300"></canvas>
+      <div class="legend">
+        <span><i class="dot" style="background:#D21034;"></i> Sang riche en O₂</span>
+        <span><i class="dot" style="background:#5B8FD9;"></i> Sang riche en CO₂</span>
+      </div>
+      <div class="phase-stage">
+        <div class="phase-name" id="circulationPhaseName"></div>
+        <div class="phase-desc" id="circulationPhaseDesc"></div>
+        <div class="phase-dots" id="circulationDots"></div>
+        <div class="phase-nav">
+          <button id="circulationPrevBtn">←</button>
+          <button id="circulationPlayBtn" style="width:auto; padding:0 18px; border-radius:21px;">▶️ Lecture auto</button>
+          <button id="circulationNextBtn">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: Excrétion -->
+  <div class="view" id="view-excretion">
+    <div class="sim-header">
+      <h2>💧 L'excrétion</h2>
+      <p>Comment les reins filtrent le sang et éliminent les déchets de l'organisme sous forme d'urine.</p>
+    </div>
+    <div class="sim-stage">
+      <canvas id="excretionCanvas" width="520" height="300"></canvas>
+      <div class="phase-stage">
+        <div class="phase-name" id="excretionPhaseName"></div>
+        <div class="phase-desc" id="excretionPhaseDesc"></div>
+        <div class="phase-dots" id="excretionDots"></div>
+        <div class="phase-nav">
+          <button id="excretionPrevBtn">←</button>
+          <button id="excretionPlayBtn" style="width:auto; padding:0 18px; border-radius:21px;">▶️ Lecture auto</button>
+          <button id="excretionNextBtn">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIM: Fonctionnement du cœur -->
+  <div class="view" id="view-coeur">
+    <div class="sim-header">
+      <h2>❤️ Fonctionnement du cœur</h2>
+      <p>Le cycle cardiaque : remplissage, contraction des oreillettes, contraction des ventricules, et retour au repos.</p>
+    </div>
+    <div class="sim-stage">
+      <canvas id="coeurCanvas" width="520" height="300"></canvas>
+      <div class="phase-stage">
+        <div class="phase-name" id="coeurPhaseName"></div>
+        <div class="phase-desc" id="coeurPhaseDesc"></div>
+        <div class="phase-dots" id="coeurDots"></div>
+        <div class="phase-nav">
+          <button id="coeurPrevBtn">←</button>
+          <button id="coeurPlayBtn" style="width:auto; padding:0 18px; border-radius:21px;">▶️ Lecture auto</button>
+          <button id="coeurNextBtn">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>Une solution AYH 🇹🇬 · Tam-Tam Silence</footer>
+
+<script>
+(function(){
+  const el = id => document.getElementById(id);
+
+  // ---------- Content structure ----------
+  const DISCIPLINES = [
+    {id:'svt', name:'SVT', icon:'🧬', color:'svt', available:true},
+    {id:'physique', name:'Physique', icon:'⚛️', color:'physique', available:false},
+    {id:'chimie', name:'Chimie', icon:'🧪', color:'chimie', available:false},
+    {id:'maths', name:'Mathématiques', icon:'📐', color:'maths', available:false},
+    {id:'techno', name:'Technologie', icon:'⚙️', color:'techno', available:false},
+  ];
+
+  const THEMES = {
+    svt: [
+      {id:'bio-cell', name:'Biologie cellulaire', icon:'🔬', available:true, sub:'7 expériences'},
+      {id:'grandes-fonctions', name:'Les grandes fonctions', icon:'❤️', available:true, sub:'5 expériences'}
+    ],
+    physique:[], chimie:[], maths:[], techno:[]
+  };
+
+  const EXPERIMENTS = {
+    'bio-cell': [
+      {id:'fonctionnement-cellule', name:'Fonctionnement de la cellule', icon:'🧫', available:true},
+      {id:'mitose', name:'Mitose', icon:'🧬', available:true},
+      {id:'meiose', name:'Méiose', icon:'🧬', available:true},
+      {id:'osmose', name:'Osmose', icon:'💧', available:true},
+      {id:'diffusion', name:'Diffusion', icon:'🌫️', available:true},
+      {id:'adn', name:'ADN', icon:'🧬', available:true},
+      {id:'synthese-proteines', name:'Synthèse des protéines', icon:'⚗️', available:true},
+    ],
+    'grandes-fonctions': [
+      {id:'digestion', name:'Digestion', icon:'🍽️', available:true},
+      {id:'respiration', name:'Respiration', icon:'🫁', available:true},
+      {id:'circulation', name:'Circulation sanguine', icon:'🩸', available:true},
+      {id:'excretion', name:"L'excrétion", icon:'💧', available:true},
+      {id:'coeur', name:'Fonctionnement du cœur', icon:'❤️', available:true},
+    ]
+  };
+
+  // ---------- Navigation state ----------
+  let nav = {level:'home', disciplineId:null, themeId:null};
+  let navStack = [];
+
+  function showView(id){
+    document.querySelectorAll('.view').forEach(v=> v.classList.remove('active'));
+    el(id).classList.add('active');
+  }
+
+  function goHome(){
+    navStack = [];
+    nav = {level:'home'};
+    el('backBtn').style.visibility = 'hidden';
+    el('breadcrumb').innerHTML = '<b>🔬 Simulations</b>';
+    renderDisciplines();
+    showView('view-home');
+  }
+
+  function goDiscipline(discId){
+    navStack.push({...nav});
+    const disc = DISCIPLINES.find(d=>d.id===discId);
+    nav = {level:'themes', disciplineId:discId};
+    el('backBtn').style.visibility = 'visible';
+    el('breadcrumb').innerHTML = `🔬 Simulations › <b>${disc.name}</b>`;
+    if(!disc.available){
+      el('soonText').textContent = `${disc.name} arrive bientôt. On commence par la SVT — les autres disciplines suivront progressivement.`;
+      showView('view-soon');
+      return;
+    }
+    el('themesTitle').textContent = `${disc.icon} ${disc.name}`;
+    el('themesSub').textContent = 'Choisis un thème pour voir ses expériences.';
+    renderThemes(discId);
+    showView('view-themes');
+  }
+
+  function goTheme(themeId){
+    navStack.push({...nav});
+    const theme = THEMES[nav.disciplineId].find(t=>t.id===themeId);
+    nav = {level:'experiments', disciplineId:nav.disciplineId, themeId};
+    el('breadcrumb').innerHTML = `🔬 Simulations › <b>${theme.name}</b>`;
+    if(!theme.available){
+      el('soonText').textContent = `${theme.name} arrive bientôt.`;
+      showView('view-soon');
+      return;
+    }
+    el('expTitle').textContent = `${theme.icon} ${theme.name}`;
+    renderExperiments(themeId);
+    showView('view-experiments');
+  }
+
+  function goExperiment(exp){
+    navStack.push({...nav});
+    el('breadcrumb').innerHTML = `🔬 Simulations › <b>${exp.name}</b>`;
+    if(!exp.available){
+      el('soonText').textContent = `La simulation "${exp.name}" arrive bientôt.`;
+      showView('view-soon');
+      return;
+    }
+    if(exp.id === 'osmose'){ showView('view-osmose'); startOsmoseView(); return; }
+    if(exp.id === 'diffusion'){ showView('view-diffusion'); startDiffusionView(); return; }
+    if(exp.id === 'mitose'){ showView('view-mitose'); startMitoseView(); return; }
+    if(exp.id === 'meiose'){ showView('view-meiose'); startMeioseView(); return; }
+    if(exp.id === 'adn'){ showView('view-adn'); startAdnView(); return; }
+    if(exp.id === 'synthese-proteines'){ showView('view-proteines'); startProteinesView(); return; }
+    if(exp.id === 'fonctionnement-cellule'){ showView('view-cellule'); return; }
+    if(exp.id === 'digestion'){ showView('view-digestion'); startDigestionView(); return; }
+    if(exp.id === 'respiration'){ showView('view-respiration'); startRespirationView(); return; }
+    if(exp.id === 'circulation'){ showView('view-circulation'); startCirculationView(); return; }
+    if(exp.id === 'excretion'){ showView('view-excretion'); startExcretionView(); return; }
+    if(exp.id === 'coeur'){ showView('view-coeur'); startCoeurView(); return; }
+  }
+
+  el('backBtn').addEventListener('click', ()=>{
+    stopAllSims();
+    if(!navStack.length){ goHome(); return; }
+    const prev = navStack.pop();
+    nav = prev;
+    if(nav.level === 'home') goHome();
+    else if(nav.level === 'themes'){
+      const disc = DISCIPLINES.find(d=>d.id===nav.disciplineId);
+      el('backBtn').style.visibility = 'visible';
+      el('breadcrumb').innerHTML = `🔬 Simulations › <b>${disc.name}</b>`;
+      renderThemes(nav.disciplineId);
+      showView('view-themes');
+    } else if(nav.level === 'experiments'){
+      const theme = THEMES[nav.disciplineId].find(t=>t.id===nav.themeId);
+      el('breadcrumb').innerHTML = `🔬 Simulations › <b>${theme.name}</b>`;
+      renderExperiments(nav.themeId);
+      showView('view-experiments');
+    }
+  });
+
+  function renderDisciplines(){
+    const grid = el('disciplineGrid');
+    grid.innerHTML = '';
+    DISCIPLINES.forEach(d=>{
+      const card = document.createElement('button');
+      card.className = `disc-card ${d.available ? d.color : ''}`;
+      const themeCount = THEMES[d.id] ? THEMES[d.id].length : 0;
+      card.innerHTML = `
+        <div class="icon">${d.icon}</div>
+        <div class="name">${d.name}</div>
+        <div class="count">${d.available ? (themeCount+' thème(s)') : 'Bientôt'}</div>
+      `;
+      card.addEventListener('click', ()=> goDiscipline(d.id));
+      grid.appendChild(card);
+    });
+  }
+
+  function renderThemes(discId){
+    const list = el('themeList');
+    list.innerHTML = '';
+    (THEMES[discId] || []).forEach(theme=>{
+      const item = document.createElement('button');
+      item.className = 'list-item';
+      item.innerHTML = `
+        <div class="li-icon">${theme.icon}</div>
+        <div class="li-body">
+          <div class="li-title">${theme.name}</div>
+          <div class="li-sub">${theme.available ? theme.sub : 'Bientôt disponible'}</div>
+        </div>
+        <div class="li-arrow">›</div>
+      `;
+      item.addEventListener('click', ()=> goTheme(theme.id));
+      list.appendChild(item);
+    });
+    if(!(THEMES[discId]||[]).length){
+      list.innerHTML = '<div class="soon-box"><div class="emoji">🔬</div><p>Aucun thème pour l\'instant dans cette discipline.</p></div>';
+    }
+  }
+
+  function renderExperiments(themeId){
+    const list = el('expList');
+    list.innerHTML = '';
+    (EXPERIMENTS[themeId] || []).forEach(exp=>{
+      const item = document.createElement('button');
+      item.className = 'list-item' + (exp.available ? '' : ' locked');
+      item.innerHTML = `
+        <div class="li-icon">${exp.icon}</div>
+        <div class="li-body">
+          <div class="li-title">${exp.name}</div>
+          <div class="li-sub">${exp.available ? 'Simulation disponible' : 'Bientôt disponible'}</div>
+        </div>
+        <div class="li-arrow">${exp.available ? '›' : '🔒'}</div>
+      `;
+      item.addEventListener('click', ()=> goExperiment(exp));
+      list.appendChild(item);
+    });
+  }
+
+  function stopAllSims(){
+    osmoseRunning = false; diffusionRunning = false;
+    if(mitosePlayInterval){ clearInterval(mitosePlayInterval); mitosePlayInterval = null; }
+    if(meiosePlayInterval){ clearInterval(meiosePlayInterval); meiosePlayInterval = null; }
+    if(adnPlayInterval){ clearInterval(adnPlayInterval); adnPlayInterval = null; }
+    if(proteinesPlayInterval){ clearInterval(proteinesPlayInterval); proteinesPlayInterval = null; }
+  }
+
+  // ================= OSMOSE SIMULATION =================
+  let osmoseRunning = false;
+  let osmoseParticles = [];
+  const osmoseCanvas = el('osmoseCanvas');
+  const osmoseCtx = osmoseCanvas.getContext('2d');
+
+  function initOsmose(){
+    osmoseParticles = [];
+    const conc = parseInt(el('osmoseConcSlider').value);
+    // Eau des deux côtés
+    for(let i=0;i<60;i++){
+      osmoseParticles.push({type:'water', x:Math.random()*230+10, y:Math.random()*300+10, vx:(Math.random()-0.5)*1.5, vy:(Math.random()-0.5)*1.5});
+    }
+    for(let i=0;i<60;i++){
+      osmoseParticles.push({type:'water', x:Math.random()*230+280, y:Math.random()*300+10, vx:(Math.random()-0.5)*1.5, vy:(Math.random()-0.5)*1.5});
+    }
+    // Soluté uniquement à droite, proportionnel à la concentration
+    const soluteCount = Math.round(conc/2);
+    for(let i=0;i<soluteCount;i++){
+      osmoseParticles.push({type:'solute', x:Math.random()*230+280, y:Math.random()*300+10, vx:(Math.random()-0.5)*1, vy:(Math.random()-0.5)*1});
+    }
+  }
+  initOsmose();
+
+  function drawOsmose(){
+    osmoseCtx.clearRect(0,0,520,320);
+    osmoseCtx.fillStyle = 'rgba(91,143,217,0.05)';
+    osmoseCtx.fillRect(0,0,260,320);
+    osmoseCtx.fillRect(260,0,260,320);
+    // Membrane
+    osmoseCtx.strokeStyle = 'rgba(244,239,230,0.35)';
+    osmoseCtx.setLineDash([6,5]);
+    osmoseCtx.beginPath(); osmoseCtx.moveTo(260,0); osmoseCtx.lineTo(260,320); osmoseCtx.stroke();
+    osmoseCtx.setLineDash([]);
+    osmoseCtx.fillStyle = 'rgba(244,239,230,0.5)';
+    osmoseCtx.font = '10px Fredoka, sans-serif';
+    osmoseCtx.fillText('Membrane', 225, 14);
+
+    osmoseParticles.forEach(p=>{
+      osmoseCtx.beginPath();
+      osmoseCtx.arc(p.x, p.y, p.type==='water'?3:4, 0, Math.PI*2);
+      osmoseCtx.fillStyle = p.type==='water' ? '#5B8FD9' : '#D21034';
+      osmoseCtx.fill();
+    });
+  }
+  drawOsmose();
+
+  function stepOsmose(){
+    // Compte pour déterminer le sens net du flux d'eau (vers le côté le plus concentré en soluté)
+    const soluteRight = osmoseParticles.filter(p=>p.type==='solute').length;
+    osmoseParticles.forEach(p=>{
+      p.x += p.vx; p.y += p.vy;
+      if(p.y < 6 || p.y > 314) p.vy *= -1;
+
+      if(p.type === 'water'){
+        // dérive nette vers la droite si soluté présent à droite (simplification pédagogique)
+        const bias = soluteRight > 20 ? 0.06 : 0;
+        p.vx += (p.x < 260 ? bias : -bias*0.3) * (Math.random());
+        p.vx = Math.max(-2, Math.min(2, p.vx));
+        if(p.x < 6){ p.x = 6; p.vx *= -1; }
+        if(p.x > 514){ p.x = 514; p.vx *= -1; }
+        // rebond doux sur la membrane sauf franchissement occasionnel biaisé
+        if(Math.abs(p.x-260) < 3 && Math.random() > 0.02) p.vx *= -1;
+      } else {
+        // le soluté reste confiné à droite
+        if(p.x < 264){ p.x = 264; p.vx = Math.abs(p.vx); }
+        if(p.x > 514){ p.x = 514; p.vx *= -1; }
+      }
+    });
+  }
+
+  function osmoseLoop(){
+    if(!osmoseRunning) return;
+    stepOsmose();
+    drawOsmose();
+    requestAnimationFrame(osmoseLoop);
+  }
+
+  function startOsmoseView(){
+    el('osmoseToggleBtn').textContent = osmoseRunning ? '⏸️ Pause' : '▶️ Démarrer';
+  }
+  el('osmoseToggleBtn').addEventListener('click', ()=>{
+    osmoseRunning = !osmoseRunning;
+    el('osmoseToggleBtn').textContent = osmoseRunning ? '⏸️ Pause' : '▶️ Démarrer';
+    if(osmoseRunning) osmoseLoop();
+  });
+  el('osmoseResetBtn').addEventListener('click', ()=>{
+    osmoseRunning = false;
+    el('osmoseToggleBtn').textContent = '▶️ Démarrer';
+    initOsmose();
+    drawOsmose();
+  });
+  el('osmoseConcSlider').addEventListener('input', ()=>{
+    if(!osmoseRunning){ initOsmose(); drawOsmose(); }
+  });
+
+  // ================= DIFFUSION SIMULATION =================
+  let diffusionRunning = false;
+  let diffusionParticles = [];
+  const diffusionCanvas = el('diffusionCanvas');
+  const diffusionCtx = diffusionCanvas.getContext('2d');
+
+  function initDiffusion(){
+    diffusionParticles = [];
+    for(let i=0;i<140;i++){
+      diffusionParticles.push({
+        x: Math.random()*90+10, // regroupées à gauche au départ
+        y: Math.random()*300+10,
+        vx:(Math.random()-0.5), vy:(Math.random()-0.5)
+      });
+    }
+  }
+  initDiffusion();
+
+  function drawDiffusion(){
+    diffusionCtx.clearRect(0,0,520,320);
+    diffusionParticles.forEach(p=>{
+      diffusionCtx.beginPath();
+      diffusionCtx.arc(p.x, p.y, 3, 0, Math.PI*2);
+      diffusionCtx.fillStyle = '#FFD100';
+      diffusionCtx.fill();
+    });
+  }
+  drawDiffusion();
+
+  function stepDiffusion(){
+    const speed = parseInt(el('diffusionSpeedSlider').value) / 3;
+    diffusionParticles.forEach(p=>{
+      p.vx += (Math.random()-0.5)*0.4;
+      p.vy += (Math.random()-0.5)*0.4;
+      p.vx = Math.max(-3, Math.min(3, p.vx));
+      p.vy = Math.max(-3, Math.min(3, p.vy));
+      p.x += p.vx*speed; p.y += p.vy*speed;
+      if(p.x < 4){ p.x=4; p.vx*=-1; }
+      if(p.x > 516){ p.x=516; p.vx*=-1; }
+      if(p.y < 4){ p.y=4; p.vy*=-1; }
+      if(p.y > 316){ p.y=316; p.vy*=-1; }
+    });
+  }
+
+  function diffusionLoop(){
+    if(!diffusionRunning) return;
+    stepDiffusion();
+    drawDiffusion();
+    requestAnimationFrame(diffusionLoop);
+  }
+
+  function startDiffusionView(){
+    el('diffusionToggleBtn').textContent = diffusionRunning ? '⏸️ Pause' : '▶️ Démarrer';
+  }
+  el('diffusionToggleBtn').addEventListener('click', ()=>{
+    diffusionRunning = !diffusionRunning;
+    el('diffusionToggleBtn').textContent = diffusionRunning ? '⏸️ Pause' : '▶️ Démarrer';
+    if(diffusionRunning) diffusionLoop();
+  });
+  el('diffusionResetBtn').addEventListener('click', ()=>{
+    diffusionRunning = false;
+    el('diffusionToggleBtn').textContent = '▶️ Démarrer';
+    initDiffusion();
+    drawDiffusion();
+  });
+
+  // ================= MITOSE SIMULATION =================
+  const MITOSE_PHASES = [
+    {name:'Interphase', desc:"La cellule grandit et duplique son ADN. Les chromosomes ne sont pas encore visibles sous forme condensée.", draw:'interphase'},
+    {name:'Prophase', desc:"Les chromosomes se condensent et deviennent visibles (2 chromatides chacun). La membrane nucléaire commence à disparaître.", draw:'prophase'},
+    {name:'Métaphase', desc:"Les chromosomes s'alignent au centre de la cellule, sur la plaque équatoriale.", draw:'metaphase'},
+    {name:'Anaphase', desc:"Les chromatides sœurs se séparent et migrent chacune vers un pôle opposé de la cellule.", draw:'anaphase'},
+    {name:'Télophase', desc:"Deux noyaux se reforment. La cellule s'étrangle au milieu (cytokinèse) pour former deux cellules filles identiques.", draw:'telophase'},
+  ];
+  let mitosePhaseIdx = 0;
+  let mitosePlayInterval = null;
+  const mitoseCanvas = el('mitoseCanvas');
+  const mitoseCtx = mitoseCanvas.getContext('2d');
+
+  function drawChromosomeX(ctx, x, y, scale, color){
+    ctx.save();
+    ctx.translate(x,y); ctx.scale(scale,scale);
+    ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-8,-10); ctx.lineTo(8,10); ctx.moveTo(8,-10); ctx.lineTo(-8,10); ctx.stroke();
+    ctx.restore();
+  }
+  function drawChromatid(ctx, x, y, scale, color){
+    ctx.save();
+    ctx.translate(x,y); ctx.scale(scale,scale);
+    ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(0,-10); ctx.lineTo(0,10); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawMitose(){
+    const ctx = mitoseCtx;
+    ctx.clearRect(0,0,520,300);
+    const phase = MITOSE_PHASES[mitosePhaseIdx].draw;
+    const colors = ['#4CAF7D','#FFD100','#5B8FD9','#D21034'];
+
+    ctx.strokeStyle = 'rgba(244,239,230,0.25)';
+    ctx.lineWidth = 2;
+
+    if(phase === 'interphase'){
+      ctx.beginPath(); ctx.ellipse(260,150,150,110,0,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(260,150,60,45,0,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle='rgba(244,239,230,0.5)'; ctx.font='11px Fredoka';
+      ctx.fillText('Noyau (ADN dupliqué, non condensé)', 155, 150);
+    }
+    else if(phase === 'prophase'){
+      ctx.beginPath(); ctx.ellipse(260,150,150,110,0,0,Math.PI*2); ctx.stroke();
+      const positions = [[220,120],[300,120],[220,180],[300,180]];
+      positions.forEach((p,i)=> drawChromosomeX(ctx, p[0], p[1], 1.6, colors[i]));
+    }
+    else if(phase === 'metaphase'){
+      ctx.beginPath(); ctx.ellipse(260,150,150,110,0,0,Math.PI*2); ctx.stroke();
+      ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.moveTo(260,50); ctx.lineTo(260,250); ctx.stroke();
+      ctx.setLineDash([]);
+      const ys = [90,130,170,210];
+      ys.forEach((y,i)=> drawChromosomeX(ctx, 260, y, 1.6, colors[i]));
+    }
+    else if(phase === 'anaphase'){
+      ctx.beginPath(); ctx.ellipse(260,150,150,110,0,0,Math.PI*2); ctx.stroke();
+      const ys = [90,130,170,210];
+      ys.forEach((y,i)=>{
+        drawChromatid(ctx, 180, y, 1.6, colors[i]);
+        drawChromatid(ctx, 340, y, 1.6, colors[i]);
+      });
+      ctx.strokeStyle='rgba(255,209,0,0.5)';
+      ctx.beginPath(); ctx.moveTo(230,130); ctx.lineTo(180,130); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(290,130); ctx.lineTo(340,130); ctx.stroke();
+    }
+    else if(phase === 'telophase'){
+      ctx.beginPath(); ctx.ellipse(150,150,110,90,0,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(370,150,110,90,0,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(150,150,45,35,0,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(370,150,45,35,0,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle='rgba(244,239,230,0.5)'; ctx.font='11px Fredoka';
+      ctx.fillText('Cellule fille 1', 105, 260);
+      ctx.fillText('Cellule fille 2', 325, 260);
+    }
+  }
+
+  function renderMitosePhase(){
+    const p = MITOSE_PHASES[mitosePhaseIdx];
+    el('mitosePhaseName').textContent = `${mitosePhaseIdx+1}/5 — ${p.name}`;
+    el('mitosePhaseDesc').textContent = p.desc;
+    const dots = el('mitoseDots');
+    dots.innerHTML = '';
+    MITOSE_PHASES.forEach((_, i)=>{
+      const d = document.createElement('span');
+      if(i===mitosePhaseIdx) d.classList.add('active');
+      dots.appendChild(d);
+    });
+    drawMitose();
+  }
+
+  function startMitoseView(){
+    mitosePhaseIdx = 0;
+    if(mitosePlayInterval){ clearInterval(mitosePlayInterval); mitosePlayInterval = null; el('mitosePlayBtn').textContent = '▶️ Lecture auto'; }
+    renderMitosePhase();
+  }
+  el('mitosePrevBtn').addEventListener('click', ()=>{
+    mitosePhaseIdx = (mitosePhaseIdx - 1 + MITOSE_PHASES.length) % MITOSE_PHASES.length;
+    renderMitosePhase();
+  });
+  el('mitoseNextBtn').addEventListener('click', ()=>{
+    mitosePhaseIdx = (mitosePhaseIdx + 1) % MITOSE_PHASES.length;
+    renderMitosePhase();
+  });
+  el('mitosePlayBtn').addEventListener('click', ()=>{
+    if(mitosePlayInterval){
+      clearInterval(mitosePlayInterval); mitosePlayInterval = null;
+      el('mitosePlayBtn').textContent = '▶️ Lecture auto';
+      return;
+    }
+    el('mitosePlayBtn').textContent = '⏸️ Pause';
+    mitosePlayInterval = setInterval(()=>{
+      mitosePhaseIdx = (mitosePhaseIdx + 1) % MITOSE_PHASES.length;
+      renderMitosePhase();
+    }, 2200);
+  });
+
+  // ================= MÉIOSE SIMULATION =================
+  const MEIOSE_COLORS = { p1a:'#4CAF7D', p1b:'#A8E0C4', p2a:'#5B8FD9', p2b:'#AFCBEF' };
+  const MEIOSE_PHASES = [
+    {name:'Interphase', desc:"La cellule mère (diploïde, 2n) duplique son ADN. Chaque chromosome aura bientôt 2 chromatides identiques.", draw:'interphase'},
+    {name:'Prophase I', desc:"Les chromosomes homologues s'apparient (synapsis) et forment des tétrades. Un brassage génétique a lieu : des segments d'ADN s'échangent entre chromosomes homologues (crossing-over) — l'étoile dorée marque le point d'échange.", draw:'prophaseI'},
+    {name:'Métaphase I', desc:"Les paires de chromosomes homologues (tétrades) s'alignent ensemble sur la plaque équatoriale — pas les chromosomes seuls comme en mitose.", draw:'metaphaseI'},
+    {name:'Anaphase I', desc:"Les chromosomes homologues se séparent et migrent vers les pôles opposés. Contrairement à la mitose, les chromatides sœurs restent unies.", draw:'anaphaseI'},
+    {name:'Télophase I', desc:"Deux cellules filles haploïdes (n) se forment. Chaque chromosome a encore 2 chromatides. C'est la 1ère division (réductionnelle).", draw:'telophaseI'},
+    {name:'Métaphase II', desc:"Dans chacune des 2 cellules, les chromosomes (toujours à 2 chromatides) s'alignent seuls sur leur propre plaque équatoriale — comme en mitose.", draw:'metaphaseII'},
+    {name:'Anaphase II', desc:"Dans chaque cellule, les chromatides sœurs se séparent enfin et migrent vers les pôles opposés.", draw:'anaphaseII'},
+    {name:'Télophase II', desc:"4 cellules filles haploïdes (n) sont formées, génétiquement différentes grâce au brassage — ce sont les futurs gamètes. C'est la 2ème division (équationnelle).", draw:'telophaseII'},
+  ];
+  let meiosePhaseIdx = 0;
+  let meiosePlayInterval = null;
+  const meioseCanvas = el('meioseCanvas');
+  const meioseCtx = meioseCanvas.getContext('2d');
+
+  function drawCellOutline(ctx, cx, cy, rx, ry, nucleusScale){
+    ctx.strokeStyle = 'rgba(244,239,230,0.25)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2); ctx.stroke();
+    if(nucleusScale){
+      ctx.beginPath(); ctx.ellipse(cx,cy,rx*nucleusScale,ry*nucleusScale,0,0,Math.PI*2); ctx.stroke();
+    }
+  }
+
+  function drawMeiose(){
+    const ctx = meioseCtx;
+    ctx.clearRect(0,0,520,300);
+    const phase = MEIOSE_PHASES[meiosePhaseIdx].draw;
+    const C = MEIOSE_COLORS;
+
+    if(phase === 'interphase'){
+      drawCellOutline(ctx, 260,150, 150,110, 0.4);
+      ctx.fillStyle='rgba(244,239,230,0.5)'; ctx.font='11px Fredoka';
+      ctx.fillText('Noyau — ADN dupliqué, non condensé', 130, 150);
+    }
+
+    else if(phase === 'prophaseI'){
+      drawCellOutline(ctx, 260,150, 150,110);
+      // Tétrade 1 (paire 1, appariée)
+      drawChromosomeX(ctx, 232, 110, 1.5, C.p1a);
+      drawChromosomeX(ctx, 232, 128, 1.5, C.p1b);
+      ctx.fillStyle='#FFD100';
+      ctx.beginPath(); ctx.arc(232,119,4,0,Math.PI*2); ctx.fill();
+      // Tétrade 2 (paire 2, appariée)
+      drawChromosomeX(ctx, 300, 170, 1.5, C.p2a);
+      drawChromosomeX(ctx, 300, 188, 1.5, C.p2b);
+      ctx.beginPath(); ctx.arc(300,179,4,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='rgba(255,209,0,0.8)'; ctx.font='10px Fredoka';
+      ctx.fillText('✦ crossing-over', 195, 95);
+    }
+
+    else if(phase === 'metaphaseI'){
+      drawCellOutline(ctx, 260,150, 150,110);
+      ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(244,239,230,0.3)';
+      ctx.beginPath(); ctx.moveTo(260,50); ctx.lineTo(260,250); ctx.stroke(); ctx.setLineDash([]);
+      drawChromosomeX(ctx, 245, 110, 1.5, C.p1a);
+      drawChromosomeX(ctx, 275, 110, 1.5, C.p1b);
+      drawChromosomeX(ctx, 245, 190, 1.5, C.p2a);
+      drawChromosomeX(ctx, 275, 190, 1.5, C.p2b);
+    }
+
+    else if(phase === 'anaphaseI'){
+      drawCellOutline(ctx, 260,150, 150,110);
+      drawChromosomeX(ctx, 170, 110, 1.5, C.p1a);
+      drawChromosomeX(ctx, 170, 190, 1.5, C.p2a);
+      drawChromosomeX(ctx, 350, 110, 1.5, C.p1b);
+      drawChromosomeX(ctx, 350, 190, 1.5, C.p2b);
+    }
+
+    else if(phase === 'telophaseI'){
+      drawCellOutline(ctx, 150,150, 110,90, 0.42);
+      drawCellOutline(ctx, 370,150, 110,90, 0.42);
+      drawChromosomeX(ctx, 130, 135, 1.3, C.p1a);
+      drawChromosomeX(ctx, 130, 170, 1.3, C.p2a);
+      drawChromosomeX(ctx, 350, 135, 1.3, C.p1b);
+      drawChromosomeX(ctx, 350, 170, 1.3, C.p2b);
+      ctx.fillStyle='rgba(244,239,230,0.5)'; ctx.font='10px Fredoka';
+      ctx.fillText('Cellule haploïde A', 95, 258);
+      ctx.fillText('Cellule haploïde B', 315, 258);
+    }
+
+    else if(phase === 'metaphaseII'){
+      drawCellOutline(ctx, 150,150, 110,90);
+      drawCellOutline(ctx, 370,150, 110,90);
+      ctx.setLineDash([3,3]); ctx.strokeStyle='rgba(244,239,230,0.3)';
+      ctx.beginPath(); ctx.moveTo(150,70); ctx.lineTo(150,230); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(370,70); ctx.lineTo(370,230); ctx.stroke();
+      ctx.setLineDash([]);
+      drawChromosomeX(ctx, 150, 115, 1.3, C.p1a);
+      drawChromosomeX(ctx, 150, 185, 1.3, C.p2a);
+      drawChromosomeX(ctx, 370, 115, 1.3, C.p1b);
+      drawChromosomeX(ctx, 370, 185, 1.3, C.p2b);
+    }
+
+    else if(phase === 'anaphaseII'){
+      drawCellOutline(ctx, 150,150, 110,90);
+      drawCellOutline(ctx, 370,150, 110,90);
+      [ [150,100,C.p1a], [150,200,C.p2a], [370,100,C.p1b], [370,200,C.p2b] ].forEach(([cx,cy,col])=>{
+        drawChromatid(ctx, cx-14, cy-14, 1.3, col);
+        drawChromatid(ctx, cx-14, cy+14, 1.3, col);
+        drawChromatid(ctx, cx+14, cy-14, 1.3, col);
+        drawChromatid(ctx, cx+14, cy+14, 1.3, col);
+      });
+    }
+
+    else if(phase === 'telophaseII'){
+      const cells = [
+        {cx:80, col1:C.p1a, col2:C.p2a},
+        {cx:210, col1:C.p1a, col2:C.p2a},
+        {cx:340, col1:C.p1b, col2:C.p2b},
+        {cx:470, col1:C.p1b, col2:C.p2b},
+      ];
+      cells.forEach(c=>{
+        drawCellOutline(ctx, c.cx,150, 55,60, 0.5);
+        drawChromatid(ctx, c.cx-8, 135, 1.1, c.col1);
+        drawChromatid(ctx, c.cx+8, 165, 1.1, c.col2);
+      });
+      ctx.fillStyle='rgba(244,239,230,0.5)'; ctx.font='9.5px Fredoka';
+      ctx.fillText('4 gamètes haploïdes (n)', 190, 250);
+    }
+  }
+
+  function renderMeiosePhase(){
+    const p = MEIOSE_PHASES[meiosePhaseIdx];
+    el('meiosePhaseName').textContent = `${meiosePhaseIdx+1}/${MEIOSE_PHASES.length} — ${p.name}`;
+    el('meiosePhaseDesc').textContent = p.desc;
+    const dots = el('meioseDots');
+    dots.innerHTML = '';
+    MEIOSE_PHASES.forEach((_, i)=>{
+      const d = document.createElement('span');
+      if(i===meiosePhaseIdx) d.classList.add('active');
+      dots.appendChild(d);
+    });
+    drawMeiose();
+  }
+
+  function startMeioseView(){
+    meiosePhaseIdx = 0;
+    if(meiosePlayInterval){ clearInterval(meiosePlayInterval); meiosePlayInterval = null; el('meiosePlayBtn').textContent = '▶️ Lecture auto'; }
+    renderMeiosePhase();
+  }
+  el('meiosePrevBtn').addEventListener('click', ()=>{
+    meiosePhaseIdx = (meiosePhaseIdx - 1 + MEIOSE_PHASES.length) % MEIOSE_PHASES.length;
+    renderMeiosePhase();
+  });
+  el('meioseNextBtn').addEventListener('click', ()=>{
+    meiosePhaseIdx = (meiosePhaseIdx + 1) % MEIOSE_PHASES.length;
+    renderMeiosePhase();
+  });
+  el('meiosePlayBtn').addEventListener('click', ()=>{
+    if(meiosePlayInterval){
+      clearInterval(meiosePlayInterval); meiosePlayInterval = null;
+      el('meiosePlayBtn').textContent = '▶️ Lecture auto';
+      return;
+    }
+    el('meiosePlayBtn').textContent = '⏸️ Pause';
+    meiosePlayInterval = setInterval(()=>{
+      meiosePhaseIdx = (meiosePhaseIdx + 1) % MEIOSE_PHASES.length;
+      renderMeiosePhase();
+    }, 2400);
+  });
+
+  // ================= ADN SIMULATION =================
+  const BASE_COLORS = {A:'#D21034', T:'#5B8FD9', G:'#4CAF7D', C:'#FFD100'};
+  const COMPLEMENT = {A:'T', T:'A', G:'C', C:'G'};
+  const ADN_SEQUENCE = ['A','T','G','C','A','T'];
+
+  function drawBase(ctx, x, y, base, r){
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle = BASE_COLORS[base]; ctx.fill();
+    ctx.fillStyle = '#1c140d'; ctx.font = `bold ${Math.round(r*1.1)}px Space Grotesk`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(base, x, y+0.5);
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  }
+
+  function drawLadderRow(ctx, sequence, y, r, label){
+    const startX = 70, gap = (460-70)/(sequence.length-1);
+    ctx.strokeStyle = 'rgba(244,239,230,0.3)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(startX-20,y); ctx.lineTo(startX+gap*(sequence.length-1)+20,y); ctx.stroke();
+    sequence.forEach((b,i)=> drawBase(ctx, startX+i*gap, y, b, r));
+    if(label){
+      ctx.fillStyle='rgba(244,239,230,0.5)'; ctx.font='10px Fredoka';
+      ctx.fillText(label, startX-18, y-16);
+    }
+    return {startX, gap};
+  }
+
+  function drawRungs(ctx, seqTop, y1, y2, geo, complementRow){
+    ctx.strokeStyle = 'rgba(244,239,230,0.25)'; ctx.lineWidth = 1.5;
+    seqTop.forEach((b,i)=>{
+      const x = geo.startX + i*geo.gap;
+      ctx.beginPath(); ctx.moveTo(x, y1+9); ctx.lineTo(x, y2-9); ctx.stroke();
+    });
+  }
+
+  // ---------- Structure (static) ----------
+  function drawAdnStructure(){
+    const canvas = el('adnStructureCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,520,300);
+    const complement = ADN_SEQUENCE.map(b=> COMPLEMENT[b]);
+    const geoTop = drawLadderRow(ctx, ADN_SEQUENCE, 100, 15, "Brin 1 (5' → 3')");
+    drawRungs(ctx, ADN_SEQUENCE, 100, 200, geoTop);
+    drawLadderRow(ctx, complement, 200, 15, "Brin 2 (3' → 5')");
+    ctx.fillStyle='rgba(244,239,230,0.55)'; ctx.font='10px Fredoka';
+    ctx.fillText('Liaisons hydrogène (bases complémentaires)', 150, 150);
+  }
+
+  // ---------- Réplication (5 phases) ----------
+  const ADN_PHASES = [
+    {name:'ADN mère', desc:"La molécule d'ADN mère, sous forme de double hélice fermée, avant la réplication.", draw:'closed'},
+    {name:"Ouverture de l'hélice", desc:"Une enzyme (l'hélicase) rompt les liaisons hydrogène et sépare les deux brins, qui s'écartent l'un de l'autre.", draw:'open'},
+    {name:'Les brins servent de matrice', desc:"Chaque brin séparé va servir de modèle : des nucléotides libres, complémentaires, viennent s'apparier à chaque base exposée.", draw:'template'},
+    {name:'Ajout des bases complémentaires', desc:"L'ADN polymérase assemble un nouveau brin complémentaire le long de chaque brin matrice.", draw:'synthesis'},
+    {name:'Deux molécules filles', desc:"Réplication semi-conservative : chaque molécule fille contient 1 brin ancien (matrice) + 1 brin nouvellement synthétisé, identique à la molécule mère.", draw:'done'},
+  ];
+  let adnPhaseIdx = 0;
+  let adnPlayInterval = null;
+
+  function drawAdnReplication(){
+    const canvas = el('adnReplicationCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,520,300);
+    const phase = ADN_PHASES[adnPhaseIdx].draw;
+    const complement = ADN_SEQUENCE.map(b=> COMPLEMENT[b]);
+
+    if(phase === 'closed'){
+      const geo = drawLadderRow(ctx, ADN_SEQUENCE, 130, 15, "Brin 1");
+      drawRungs(ctx, ADN_SEQUENCE, 130, 170, geo);
+      drawLadderRow(ctx, complement, 170, 15, "Brin 2");
+    }
+    else if(phase === 'open' || phase === 'template'){
+      drawLadderRow(ctx, ADN_SEQUENCE, 80, 14, "Brin 1 (matrice)");
+      drawLadderRow(ctx, complement, 220, 14, "Brin 2 (matrice)");
+      if(phase === 'template'){
+        ctx.fillStyle='rgba(244,239,230,0.35)'; ctx.font='9px Fredoka';
+        ctx.fillText('nucléotides libres à proximité...', 170, 150);
+        // quelques nucléotides libres flottants
+        [[120,140],[220,160],[320,140],[400,160]].forEach(([x,y],i)=>{
+          const bases=['A','T','G','C'];
+          ctx.globalAlpha = 0.35;
+          drawBase(ctx, x, y, bases[i%4], 9);
+          ctx.globalAlpha = 1;
+        });
+      }
+    }
+    else if(phase === 'synthesis' || phase === 'done'){
+      // Molécule fille 1 : brin 1 (ancien, en haut) + nouveau brin complémentaire (en bas, juste dessous)
+      const geo1 = drawLadderRow(ctx, ADN_SEQUENCE, 65, 12, "ancien");
+      const newComplement1 = phase==='synthesis' ? complement.map((b,i)=> i < complement.length/2 ? b : null) : complement;
+      drawPartialRow(ctx, newComplement1, 105, 12, geo1);
+      drawRungs(ctx, ADN_SEQUENCE, 65, 105, geo1);
+
+      // Molécule fille 2 : brin 2 (ancien, en bas) + nouveau brin complémentaire (au-dessus, juste avant)
+      const geo2 = drawLadderRow(ctx, complement, 235, 12, "ancien");
+      const newTop2 = phase==='synthesis' ? ADN_SEQUENCE.map((b,i)=> i < ADN_SEQUENCE.length/2 ? b : null) : ADN_SEQUENCE;
+      drawPartialRow(ctx, newTop2, 195, 12, geo2);
+      drawRungs(ctx, complement, 195, 235, geo2);
+
+      ctx.fillStyle='rgba(244,239,230,0.5)'; ctx.font='9.5px Fredoka';
+      ctx.fillText('Molécule fille 1', 20, 40);
+      ctx.fillText('Molécule fille 2', 20, 268);
+    }
+  }
+
+  function drawPartialRow(ctx, sequenceWithNulls, y, r, geo){
+    ctx.strokeStyle = 'rgba(244,239,230,0.3)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(geo.startX-20,y); ctx.lineTo(geo.startX+geo.gap*(sequenceWithNulls.length-1)+20,y); ctx.stroke();
+    sequenceWithNulls.forEach((b,i)=>{
+      if(b) drawBase(ctx, geo.startX+i*geo.gap, y, b, r);
+      else {
+        ctx.beginPath(); ctx.arc(geo.startX+i*geo.gap, y, r, 0, Math.PI*2);
+        ctx.strokeStyle='rgba(244,239,230,0.25)'; ctx.setLineDash([2,2]); ctx.stroke(); ctx.setLineDash([]);
+      }
+    });
+  }
+
+  function renderAdnPhase(){
+    const p = ADN_PHASES[adnPhaseIdx];
+    el('adnPhaseName').textContent = `${adnPhaseIdx+1}/${ADN_PHASES.length} — ${p.name}`;
+    el('adnPhaseDesc').textContent = p.desc;
+    const dots = el('adnDots');
+    dots.innerHTML = '';
+    ADN_PHASES.forEach((_, i)=>{
+      const d = document.createElement('span');
+      if(i===adnPhaseIdx) d.classList.add('active');
+      dots.appendChild(d);
+    });
+    drawAdnReplication();
+  }
+
+  function startAdnView(){
+    drawAdnStructure();
+    adnPhaseIdx = 0;
+    if(adnPlayInterval){ clearInterval(adnPlayInterval); adnPlayInterval = null; el('adnPlayBtn').textContent = '▶️ Lecture auto'; }
+    renderAdnPhase();
+    el('adnTabStructureBtn').classList.add('active');
+    el('adnTabReplicationBtn').classList.remove('active');
+    el('adnStructureView').classList.add('active');
+    el('adnReplicationView').classList.remove('active');
+  }
+
+  el('adnTabStructureBtn').addEventListener('click', ()=>{
+    el('adnTabStructureBtn').classList.add('active');
+    el('adnTabReplicationBtn').classList.remove('active');
+    el('adnStructureView').classList.add('active');
+    el('adnReplicationView').classList.remove('active');
+    drawAdnStructure();
+  });
+  el('adnTabReplicationBtn').addEventListener('click', ()=>{
+    el('adnTabReplicationBtn').classList.add('active');
+    el('adnTabStructureBtn').classList.remove('active');
+    el('adnReplicationView').classList.add('active');
+    el('adnStructureView').classList.remove('active');
+    renderAdnPhase();
+  });
+  el('adnPrevBtn').addEventListener('click', ()=>{
+    adnPhaseIdx = (adnPhaseIdx - 1 + ADN_PHASES.length) % ADN_PHASES.length;
+    renderAdnPhase();
+  });
+  el('adnNextBtn').addEventListener('click', ()=>{
+    adnPhaseIdx = (adnPhaseIdx + 1) % ADN_PHASES.length;
+    renderAdnPhase();
+  });
+  el('adnPlayBtn').addEventListener('click', ()=>{
+    if(adnPlayInterval){
+      clearInterval(adnPlayInterval); adnPlayInterval = null;
+      el('adnPlayBtn').textContent = '▶️ Lecture auto';
+      return;
+    }
+    el('adnPlayBtn').textContent = '⏸️ Pause';
+    adnPlayInterval = setInterval(()=>{
+      adnPhaseIdx = (adnPhaseIdx + 1) % ADN_PHASES.length;
+      renderAdnPhase();
+    }, 2400);
+  });
+
+  // ================= SYNTHÈSE DES PROTÉINES =================
+  const CODONS = [
+    {codon:'AUG', aa:'Met', color:'#D21034'},
+    {codon:'GGC', aa:'Gly', color:'#4CAF7D'},
+    {codon:'UUA', aa:'Leu', color:'#5B8FD9'},
+    {codon:'UAG', aa:'STOP', color:null},
+  ];
+  const DNA_TEMPLATE = ['T','A','C','C','C','G','A','A','T','C','T','C'];
+  const MRNA_BASES = DNA_TEMPLATE.map(b=> ({A:'U',T:'A',G:'C',C:'G'}[b]));
+  const RNA_COLORS = {A:'#D21034', U:'#5B8FD9', G:'#4CAF7D', C:'#FFD100'};
+
+  function drawRnaBase(ctx, x, y, base, r){
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle = RNA_COLORS[base]; ctx.fill();
+    ctx.fillStyle = '#1c140d'; ctx.font = `bold ${Math.round(r*1.1)}px Space Grotesk`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(base, x, y+0.5);
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  }
+
+  const PROTEIN_PHASES = [
+    {name:"Le gène dans l'ADN", desc:"Dans le noyau, un gène (segment d'ADN) contient l'information nécessaire pour fabriquer une protéine.", draw:'gene'},
+    {name:'Transcription : ADN → ARNm', desc:"L'ARN polymérase lit le brin matrice et synthétise un brin d'ARN messager complémentaire (avec U à la place de T).", draw:'transcription'},
+    {name:'Export vers le cytoplasme', desc:"L'ARNm mature quitte le noyau et rejoint le cytoplasme, où se trouvent les ribosomes.", draw:'export'},
+    {name:'Traduction : lecture des codons', desc:"Le ribosome se fixe sur l'ARNm et lit les bases par groupes de 3 (codons). Chaque codon est reconnu par un ARN de transfert (ARNt) portant l'acide aminé correspondant.", draw:'translation'},
+    {name:'Formation de la chaîne', desc:"À mesure que le ribosome avance le long de l'ARNm, les acides aminés s'enchaînent pour former une chaîne polypeptidique.", draw:'chain'},
+    {name:'Protéine achevée', desc:"Le codon stop (UAG) arrête la traduction. La chaîne d'acides aminés est libérée et se replie pour former la protéine fonctionnelle.", draw:'done'},
+  ];
+  let proteinesPhaseIdx = 0;
+  let proteinesPlayInterval = null;
+
+  function drawProteines(){
+    const canvas = el('proteinesCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,520,300);
+    const phase = PROTEIN_PHASES[proteinesPhaseIdx].draw;
+
+    if(phase === 'gene'){
+      const geo = drawLadderRow(ctx, DNA_TEMPLATE, 120, 12, "Brin matrice (ADN)");
+      const complement = DNA_TEMPLATE.map(b=> COMPLEMENT[b]);
+      drawRungs(ctx, DNA_TEMPLATE, 120, 180, geo);
+      drawLadderRow(ctx, complement, 180, 12, "Brin codant");
+      ctx.fillStyle='rgba(244,239,230,0.5)'; ctx.font='10px Fredoka';
+      ctx.fillText('Noyau', 20, 30);
+    }
+    else if(phase === 'transcription'){
+      drawLadderRow(ctx, DNA_TEMPLATE, 110, 12, "Brin matrice (ADN)");
+      const geoRna = {startX:70, gap:(460-70)/(MRNA_BASES.length-1)};
+      MRNA_BASES.forEach((b,i)=>{
+        const x = geoRna.startX + i*geoRna.gap;
+        if(i <= MRNA_BASES.length*0.6) drawRnaBase(ctx, x, 190, b, 12);
+        else { ctx.beginPath(); ctx.arc(x,190,12,0,Math.PI*2); ctx.strokeStyle='rgba(244,239,230,0.25)'; ctx.setLineDash([2,2]); ctx.stroke(); ctx.setLineDash([]); }
+      });
+      ctx.fillStyle='rgba(244,239,230,0.5)'; ctx.font='10px Fredoka';
+      ctx.fillText('ARNm (en cours)', 20, 205);
+    }
+    else if(phase === 'export'){
+      ctx.strokeStyle='rgba(244,239,230,0.2)'; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(0,90); ctx.lineTo(520,90); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(244,239,230,0.4)'; ctx.font='10px Fredoka';
+      ctx.fillText('Noyau', 20, 40);
+      ctx.fillText('Cytoplasme', 20, 260);
+      const geoRna = {startX:100, gap:(420-100)/(MRNA_BASES.length-1)};
+      MRNA_BASES.forEach((b,i)=> drawRnaBase(ctx, geoRna.startX+i*geoRna.gap, 190, b, 12));
+      ctx.fillStyle='rgba(255,209,0,0.8)'; ctx.font='16px Fredoka';
+      ctx.fillText('↓', 250, 130);
+    }
+    else if(phase === 'translation' || phase === 'chain' || phase === 'done'){
+      const geoRna = {startX:60, gap:60};
+      // ARNm en ligne, groupé par codons
+      let x0 = geoRna.startX;
+      CODONS.forEach((c)=>{
+        for(let i=0;i<3;i++){
+          const base = c.codon[i]==='U' ? 'U' : c.codon[i];
+          drawRnaBase(ctx, x0, 220, c.codon[i], 11);
+          x0 += 24;
+        }
+        x0 += 14;
+      });
+      ctx.strokeStyle='rgba(244,239,230,0.3)'; ctx.font='9px Fredoka'; ctx.fillStyle='rgba(244,239,230,0.5)';
+      ctx.fillText('ARNm (codons)', 20, 260);
+
+      const activeCodon = phase==='translation' ? 0 : (phase==='chain' ? 1 : CODONS.length-1);
+      const ribosomeX = geoRna.startX + activeCodon*(24*3+14) + 24;
+
+      // Ribosome
+      ctx.beginPath(); ctx.ellipse(ribosomeX, 175, 55, 30, 0, 0, Math.PI*2);
+      ctx.fillStyle='rgba(217,168,91,0.25)'; ctx.fill();
+      ctx.strokeStyle='#D9A85B'; ctx.lineWidth=2; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(ribosomeX, 195, 45, 22, 0, 0, Math.PI*2);
+      ctx.fillStyle='rgba(217,168,91,0.35)'; ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(244,239,230,0.6)'; ctx.font='9px Fredoka';
+      ctx.fillText('Ribosome', ribosomeX-24, 145);
+
+      // Chaîne d'acides aminés déjà formée
+      const chainCount = phase==='translation' ? 1 : (phase==='chain' ? 2 : 3);
+      let px = geoRna.startX + 24;
+      for(let i=0;i<chainCount;i++){
+        const aa = CODONS[i];
+        if(aa.aa === 'STOP') break;
+        ctx.beginPath(); ctx.arc(px, 100 - i*4, 13, 0, Math.PI*2);
+        ctx.fillStyle = aa.color; ctx.fill();
+        ctx.fillStyle='#1c140d'; ctx.font='bold 9px Fredoka'; ctx.textAlign='center';
+        ctx.fillText(aa.aa, px, 103-i*4); ctx.textAlign='left';
+        if(i>0){
+          ctx.strokeStyle='rgba(244,239,230,0.4)'; ctx.lineWidth=2;
+          ctx.beginPath(); ctx.moveTo(px-32, 100-(i-1)*4); ctx.lineTo(px-13, 100-i*4); ctx.stroke();
+        }
+        px += 32;
+      }
+      if(phase==='done'){
+        ctx.fillStyle='rgba(76,175,125,0.9)'; ctx.font='11px Fredoka';
+        ctx.fillText('✓ Protéine libérée et repliée', geoRna.startX, 60);
+      }
+    }
+  }
+
+  function renderProteinesPhase(){
+    const p = PROTEIN_PHASES[proteinesPhaseIdx];
+    el('proteinesPhaseName').textContent = `${proteinesPhaseIdx+1}/${PROTEIN_PHASES.length} — ${p.name}`;
+    el('proteinesPhaseDesc').textContent = p.desc;
+    const dots = el('proteinesDots');
+    dots.innerHTML = '';
+    PROTEIN_PHASES.forEach((_, i)=>{
+      const d = document.createElement('span');
+      if(i===proteinesPhaseIdx) d.classList.add('active');
+      dots.appendChild(d);
+    });
+    drawProteines();
+  }
+
+  function startProteinesView(){
+    proteinesPhaseIdx = 0;
+    if(proteinesPlayInterval){ clearInterval(proteinesPlayInterval); proteinesPlayInterval = null; el('proteinesPlayBtn').textContent = '▶️ Lecture auto'; }
+    renderProteinesPhase();
+  }
+  el('proteinesPrevBtn').addEventListener('click', ()=>{
+    proteinesPhaseIdx = (proteinesPhaseIdx - 1 + PROTEIN_PHASES.length) % PROTEIN_PHASES.length;
+    renderProteinesPhase();
+  });
+  el('proteinesNextBtn').addEventListener('click', ()=>{
+    proteinesPhaseIdx = (proteinesPhaseIdx + 1) % PROTEIN_PHASES.length;
+    renderProteinesPhase();
+  });
+  el('proteinesPlayBtn').addEventListener('click', ()=>{
+    if(proteinesPlayInterval){
+      clearInterval(proteinesPlayInterval); proteinesPlayInterval = null;
+      el('proteinesPlayBtn').textContent = '▶️ Lecture auto';
+      return;
+    }
+    el('proteinesPlayBtn').textContent = '⏸️ Pause';
+    proteinesPlayInterval = setInterval(()=>{
+      proteinesPhaseIdx = (proteinesPhaseIdx + 1) % PROTEIN_PHASES.length;
+      renderProteinesPhase();
+    }, 2600);
+  });
+
+  // ================= FONCTIONNEMENT DE LA CELLULE =================
+  const ORGANELLE_INFO = {
+    membrane: {name:'Membrane plasmique', desc:"Enveloppe la cellule et contrôle les échanges de matière avec le milieu extérieur."},
+    cytoplasme: {name:'Cytoplasme', desc:"Milieu liquide (cytosol) où baignent les organites et où se déroulent de nombreuses réactions chimiques."},
+    noyau: {name:'Noyau', desc:"Contient l'ADN (information génétique) et contrôle l'ensemble de l'activité de la cellule."},
+    nucleole: {name:'Nucléole', desc:"Structure à l'intérieur du noyau où sont fabriqués les ribosomes."},
+    reticulum: {name:'Réticulum endoplasmique', desc:"Réseau de membranes qui fabrique et transporte les protéines et les lipides."},
+    golgi: {name:'Appareil de Golgi', desc:"Trie, modifie et empaquette les protéines avant leur envoi vers leur destination."},
+    mitochondrie: {name:'Mitochondrie', desc:"Produit l'énergie (ATP) de la cellule grâce à la respiration cellulaire."},
+    ribosome: {name:'Ribosome', desc:"Fabrique les protéines à partir de l'information portée par l'ARNm (traduction)."},
+  };
+
+  document.querySelectorAll('#cellSvg .organelle').forEach(elm=>{
+    elm.addEventListener('click', ()=>{
+      document.querySelectorAll('#cellSvg .organelle').forEach(o=> o.classList.remove('selected'));
+      document.querySelectorAll(`#cellSvg .organelle[data-id="${elm.dataset.id}"]`).forEach(o=> o.classList.add('selected'));
+      const info = ORGANELLE_INFO[elm.dataset.id];
+      if(info){
+        el('cellInfoBox').innerHTML = `<h3>${info.name}</h3><p>${info.desc}</p>`;
+      }
+    });
+  });
+
+  // ---------- Init ----------
+  goHome();
+})();
+</script>
+</body>
+</html>
