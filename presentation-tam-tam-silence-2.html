@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tam-Tam Silence — Le calme en classe, sans lever la voix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --wood:#160f09; --wood-deep:#0f0a06; --wood-light:#2f2216; --wood-card:#3a2a19;
+    --skin:#D9A85B; --skin-dim:#8a6a3d;
+    --cream:#F4EFE6; --cream-dim:#c7bba5;
+    --calme:#00A85E; --attention:#FFD100; --bruit:#D21034;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--wood); color:var(--cream);
+    font-family:'Work Sans',sans-serif; line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    position:relative;
+  }
+  h1,h2,h3,.display{font-family:'Fredoka',sans-serif;}
+  .num{font-family:'Space Grotesk',monospace;}
+  img{max-width:100%; display:block;}
+  a{color:inherit;}
+  .wrap{max-width:520px; margin:0 auto; padding:0 22px; position:relative; z-index:2;}
+  section{padding:54px 0; position:relative;}
+  section[id]{scroll-margin-top:70px;}
+
+  /* ---------- Fond général : grain de bois + lueur chaude ---------- */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(ellipse 600px 500px at 50% 0%, rgba(217,168,91,0.10), transparent 65%),
+      linear-gradient(180deg, var(--wood) 0%, var(--wood-deep) 100%);
+  }
+  body::after{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0.5;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(217,168,91,0.025) 0px, rgba(217,168,91,0.025) 1px, transparent 1px, transparent 3px);
+  }
+
+  /* ---------- Ondes de tam-tam (signature visuelle) ---------- */
+  .drumskin{
+    position:absolute; top:-40px; left:50%; transform:translateX(-50%);
+    width:640px; height:640px; z-index:0; pointer-events:none;
+  }
+  .drumskin svg{width:100%; height:100%;}
+  .drumskin circle{
+    fill:none; stroke-width:1.4;
+    transform-origin:center; transform-box:fill-box;
+  }
+  .ring-a{stroke:rgba(0,168,94,0.28); animation:ripple 4.5s cubic-bezier(.2,.6,.35,1) infinite;}
+  .ring-b{stroke:rgba(217,168,91,0.32); animation:ripple 4.5s cubic-bezier(.2,.6,.35,1) infinite; animation-delay:1.1s;}
+  .ring-c{stroke:rgba(255,209,0,0.22); animation:ripple 4.5s cubic-bezier(.2,.6,.35,1) infinite; animation-delay:2.2s;}
+  .ring-d{stroke:rgba(0,168,94,0.16); animation:ripple 4.5s cubic-bezier(.2,.6,.35,1) infinite; animation-delay:3.3s;}
+  @keyframes ripple{
+    0%{ r:14; opacity:0.9; }
+    100%{ r:230; opacity:0; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .drumskin circle{animation:none; opacity:0.15;}
+  }
+
+  /* ---------- Header ---------- */
+  header.site{
+    position:sticky; top:0; z-index:50;
+    background:rgba(15,10,6,0.88); backdrop-filter:blur(10px);
+    border-bottom:1px solid rgba(217,168,91,0.14);
+  }
+  header.site .bar{
+    max-width:520px; margin:0 auto; padding:12px 22px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .logo{display:flex; align-items:center; gap:10px;}
+  .logo-mark{
+    width:38px; height:38px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #4a3420, var(--wood-card));
+    border:1.5px solid var(--calme);
+    display:flex; align-items:center; justify-content:center;
+    font-size:17px; flex-shrink:0;
+  }
+  .logo-text{font-family:'Fredoka'; font-weight:600; font-size:15px; line-height:1.15;}
+  .logo-text small{display:block; font-family:'Work Sans'; font-weight:500; font-size:10.5px; color:var(--cream-dim); letter-spacing:0.3px;}
+  .menu-toggle{
+    background:none; border:1px solid rgba(244,239,230,0.18); border-radius:10px;
+    width:38px; height:38px; color:var(--cream); font-size:16px;
+  }
+  nav.menu{
+    max-height:0; overflow:hidden; transition:max-height 0.3s ease;
+    border-bottom:1px solid rgba(217,168,91,0.1);
+    background:rgba(15,10,6,0.95);
+  }
+  nav.menu.open{max-height:220px;}
+  nav.menu ul{list-style:none; max-width:520px; margin:0 auto; padding:6px 22px 16px;}
+  nav.menu li a{
+    display:block; padding:11px 4px; font-size:14.5px; font-weight:500;
+    color:var(--cream-dim); border-bottom:1px solid rgba(244,239,230,0.06);
+  }
+  nav.menu li:last-child a{border-bottom:none;}
+  nav.menu li a.active-link{color:var(--calme); font-weight:600;}
+
+  /* ---------- Hero ---------- */
+  .hero{padding-top:44px; text-align:center; overflow:hidden;}
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:7px;
+    font-size:12.5px; font-weight:600; letter-spacing:0.6px; text-transform:uppercase;
+    color:var(--cream-dim); background:rgba(217,168,91,0.08);
+    border:1px solid rgba(217,168,91,0.22); padding:7px 14px; border-radius:100px;
+  }
+  .eyebrow .flag{color:var(--calme);}
+  .hero h1{
+    font-size:clamp(30px,8.5vw,42px); font-weight:700; line-height:1.12;
+    margin:20px 0 14px;
+  }
+  .hero h1 .accent{color:var(--calme);}
+  .hero p.sub{color:var(--cream-dim); font-size:16px; max-width:380px; margin:0 auto;}
+
+  /* Live demo gauge */
+  .demo{
+    width:190px; height:190px; margin:40px auto 8px; position:relative;
+  }
+  .demo svg{width:100%; height:100%;}
+  .demo-glow{
+    position:absolute; inset:-30px; border-radius:50%; z-index:-1;
+    background:radial-gradient(circle, rgba(0,168,94,0.25), transparent 70%);
+    filter:blur(6px);
+  }
+  .demo-arc-bg{fill:none; stroke:rgba(217,168,91,0.12); stroke-width:12;}
+  .demo-arc{fill:none; stroke-width:12; stroke-linecap:round; stroke:var(--calme);
+    animation: demoColor 6s infinite;}
+  .demo-face{fill:var(--wood-card); stroke:rgba(217,168,91,0.2); stroke-width:2;}
+  .demo-center{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+  }
+  .demo-word{font-weight:700; font-size:16px; color:var(--calme); animation: demoWordColor 6s infinite;}
+  .demo-sub{font-size:11.5px; color:var(--cream-dim); margin-top:2px;}
+
+  @keyframes demoColor{
+    0%,28%{stroke:var(--calme);}
+    40%,60%{stroke:var(--attention);}
+    72%,92%{stroke:var(--bruit);}
+    100%{stroke:var(--calme);}
+  }
+  @keyframes demoWordColor{
+    0%,28%{color:var(--calme);}
+    40%,60%{color:var(--attention);}
+    72%,92%{color:var(--bruit);}
+    100%{color:var(--calme);}
+  }
+
+  .cta{
+    display:block; width:100%; max-width:320px; margin:30px auto 0;
+    background:linear-gradient(135deg, #00c76b, var(--calme));
+    color:white; text-decoration:none;
+    font-family:'Fredoka'; font-weight:600; font-size:16px;
+    padding:16px 20px; border-radius:16px; text-align:center;
+    box-shadow:0 14px 34px -12px rgba(0,168,94,0.55);
+  }
+  .cta.secondary{
+    background:transparent; border:1px solid rgba(217,168,91,0.3);
+    color:var(--cream); box-shadow:none; margin-top:12px;
+  }
+
+  /* ---------- Bandeau de chiffres ---------- */
+  .stats-bar{
+    display:flex; justify-content:space-around; gap:8px;
+    margin-top:38px; padding-top:28px; border-top:1px solid rgba(217,168,91,0.14);
+  }
+  .stat-item{text-align:center;}
+  .stat-num{font-family:'Space Grotesk'; font-weight:700; font-size:24px; color:var(--attention);}
+  .stat-label{font-size:10.5px; color:var(--cream-dim); margin-top:2px; max-width:80px;}
+
+  /* ---------- Simulations : disciplines ---------- */
+  .sims{border-top:1px solid rgba(217,168,91,0.1);}
+  .sims h2{font-size:23px; margin-bottom:8px; text-align:center;}
+  .sims .sub{text-align:center; color:var(--cream-dim); font-size:14px; margin-bottom:24px;}
+  .disc-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;}
+  .disc-chip{
+    border-radius:14px; padding:16px 14px; text-align:center;
+    border:1px solid rgba(217,168,91,0.16);
+  }
+  .disc-chip .n{font-size:22px; margin-bottom:6px;}
+  .disc-chip .name{font-family:'Fredoka'; font-weight:600; font-size:13.5px;}
+  .disc-chip .count{font-size:11px; color:var(--cream-dim); margin-top:2px;}
+  .disc-svt{background:linear-gradient(160deg, rgba(76,175,125,0.16), rgba(58,42,25,0.5)); border-color:rgba(76,175,125,0.3);}
+  .disc-physique{background:linear-gradient(160deg, rgba(91,143,217,0.16), rgba(58,42,25,0.5)); border-color:rgba(91,143,217,0.3);}
+  .disc-chimie{background:linear-gradient(160deg, rgba(199,125,217,0.16), rgba(58,42,25,0.5)); border-color:rgba(199,125,217,0.3);}
+  .disc-maths{background:linear-gradient(160deg, rgba(217,168,91,0.2), rgba(58,42,25,0.5)); border-color:rgba(217,168,91,0.35);}
+  .disc-techno{background:linear-gradient(160deg, rgba(217,91,125,0.16), rgba(58,42,25,0.5)); border-color:rgba(217,91,125,0.3); grid-column:1 / -1;}
+  .sim-list{list-style:none; margin-top:6px;}
+  .sim-list li{font-size:13.5px; color:var(--cream-dim); padding:6px 0; display:flex; gap:8px;}
+  .sim-list li::before{content:"✓"; color:var(--calme); font-weight:700; flex-shrink:0;}
+
+  /* ---------- Assistant IA (callout) ---------- */
+  .ai-callout{
+    border-top:1px solid rgba(217,168,91,0.1);
+  }
+  .ai-box{
+    border-radius:20px; padding:26px 22px;
+    background:linear-gradient(160deg, rgba(0,168,94,0.14), rgba(58,42,25,0.55));
+    border:1.5px solid rgba(0,168,94,0.35);
+    text-align:center;
+  }
+  .ai-box .robot{font-size:34px; margin-bottom:10px;}
+  .ai-box h2{font-size:20px; margin-bottom:8px;}
+  .ai-box p{color:var(--cream-dim); font-size:14px; margin-bottom:16px;}
+  .ai-modes{display:flex; gap:8px; justify-content:center; flex-wrap:wrap;}
+  .ai-mode-tag{
+    font-size:12px; font-weight:600; font-family:'Fredoka';
+    background:rgba(244,239,230,0.08); border:1px solid rgba(217,168,91,0.25);
+    padding:6px 12px; border-radius:100px; color:var(--cream);
+  }
+
+
+  .problem{border-top:1px solid rgba(217,168,91,0.1);}
+  .problem h2{font-size:23px; margin-bottom:14px;}
+  .problem p{color:var(--cream-dim); font-size:15px;}
+  .problem p + p{margin-top:10px;}
+
+  /* ---------- Features ---------- */
+  .features{border-top:1px solid rgba(217,168,91,0.1);}
+  .features h2{font-size:23px; margin-bottom:26px; text-align:center;}
+  .feat-grid{display:grid; gap:14px;}
+  .feat-card{
+    background:linear-gradient(160deg, rgba(217,168,91,0.07), rgba(58,42,25,0.6));
+    border:1px solid rgba(217,168,91,0.14);
+    border-radius:16px; padding:18px 18px;
+    display:flex; gap:14px; align-items:flex-start;
+  }
+  .feat-icon{font-size:26px; flex-shrink:0; line-height:1;}
+  .feat-card h3{font-size:15.5px; font-weight:600; margin-bottom:4px;}
+  .feat-card p{font-size:13.5px; color:var(--cream-dim);}
+
+  /* ---------- Pricing ---------- */
+  .pricing{border-top:1px solid rgba(217,168,91,0.1);}
+  .pricing h2{font-size:23px; text-align:center; margin-bottom:6px;}
+  .pricing .sub{text-align:center; color:var(--cream-dim); font-size:14px; margin-bottom:26px;}
+  .plans{display:flex; flex-direction:column; gap:14px;}
+  .plan{
+    border-radius:18px; padding:22px 20px;
+    background:linear-gradient(160deg, rgba(217,168,91,0.06), rgba(58,42,25,0.65));
+    border:1px solid rgba(217,168,91,0.16);
+  }
+  .plan.featured{
+    border:1.5px solid var(--calme);
+    background:linear-gradient(180deg, rgba(0,168,94,0.16), var(--wood-card) 60%);
+    position:relative;
+  }
+  .plan.featured::before{
+    content:"Le plus choisi"; position:absolute; top:-11px; right:18px;
+    background:var(--calme); color:white; font-size:11px; font-weight:600;
+    padding:4px 10px; border-radius:100px; font-family:'Fredoka';
+  }
+  .plan-name{font-family:'Fredoka'; font-weight:600; font-size:16px;}
+  .plan-price{font-family:'Space Grotesk'; font-weight:700; font-size:26px; margin:6px 0 12px;}
+  .plan-price .per{font-size:13px; font-weight:500; color:var(--cream-dim); font-family:'Work Sans';}
+  .plan ul{list-style:none;}
+  .plan li{font-size:13.5px; color:var(--cream-dim); padding:5px 0; display:flex; gap:8px;}
+  .plan li::before{content:"✓"; color:var(--calme); font-weight:700; flex-shrink:0;}
+
+  /* ---------- Final CTA ---------- */
+  .final{border-top:1px solid rgba(217,168,91,0.1); text-align:center; overflow:hidden;}
+  .final h2{font-size:24px; margin-bottom:10px;}
+  .final p{color:var(--cream-dim); font-size:14.5px; margin-bottom:26px;}
+
+  footer{
+    padding:26px 22px 40px; text-align:center;
+    color:var(--cream-dim); font-size:12.5px;
+    border-top:1px solid rgba(217,168,91,0.08);
+    position:relative; z-index:2;
+  }
+  footer .brand{font-family:'Fredoka'; color:var(--cream); font-weight:600; font-size:14px; margin-bottom:4px;}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="bar">
+    <div class="logo">
+      <div class="logo-mark">🥁</div>
+      <div class="logo-text">Tam-Tam Silence<small>par AYH · Togo 🇹🇬</small></div>
+    </div>
+    <button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
+  </div>
+  <nav class="menu" id="menu">
+    <ul>
+      <li><a href="#accueil">Accueil</a></li>
+      <li><a href="#simulations">Simulations</a></li>
+      <li><a href="#fonctionnalites">Fonctionnalités</a></li>
+      <li><a href="#tarifs">Tarifs</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<section class="hero" id="accueil">
+  <div class="drumskin" aria-hidden="true">
+    <svg viewBox="0 0 640 640">
+      <circle class="ring-a" cx="320" cy="240" r="14"/>
+      <circle class="ring-b" cx="320" cy="240" r="14"/>
+      <circle class="ring-c" cx="320" cy="240" r="14"/>
+      <circle class="ring-d" cx="320" cy="240" r="14"/>
+    </svg>
+  </div>
+  <div class="wrap">
+    <span class="eyebrow"><span class="flag">●</span> Fait pour les classes togolaises</span>
+    <h1>Le silence en classe,<br>sans <span class="accent">crier</span>.</h1>
+    <p class="sub">Une appli sur le téléphone de l'enseignant qui mesure le bruit en direct et pousse les élèves à s'autoréguler — eux-mêmes.</p>
+
+    <div class="demo">
+      <div class="demo-glow"></div>
+      <svg viewBox="0 0 200 200">
+        <circle class="demo-face" cx="100" cy="100" r="70"/>
+        <circle class="demo-arc-bg" cx="100" cy="100" r="86"/>
+        <circle class="demo-arc" cx="100" cy="100" r="86" stroke-dasharray="540" stroke-dashoffset="160" transform="rotate(-90 100 100)"/>
+      </svg>
+      <div class="demo-center">
+        <div class="demo-word">CALME</div>
+        <div class="demo-sub">Aperçu en direct</div>
+      </div>
+    </div>
+
+    <a class="cta" href="https://wa.me/22898311080?text=Bonjour%2C%20je%20suis%20int%C3%A9ress%C3%A9(e)%20par%20Tam-Tam%20Silence%20pour%20ma%20classe" target="_blank">Discuter sur WhatsApp</a>
+
+    <div class="stats-bar">
+      <div class="stat-item"><div class="stat-num">117</div><div class="stat-label">simulations scientifiques</div></div>
+      <div class="stat-item"><div class="stat-num">5</div><div class="stat-label">disciplines couvertes</div></div>
+      <div class="stat-item"><div class="stat-num">🤖</div><div class="stat-label">assistant IA intégré</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="problem">
+  <div class="wrap">
+    <h2>Le même combat, chaque heure de cours</h2>
+    <p>Répéter « silence » vingt fois par cours épuise plus que la matière elle-même. Le bruit revient dès qu'on tourne le dos, et les élèves qui veulent travailler n'y arrivent pas.</p>
+    <p>Tam-Tam Silence retourne le problème : ce n'est plus l'enseignant qui surveille le bruit, c'est la classe qui se surveille elle-même, avec un retour visuel immédiat posé sur le bureau.</p>
+  </div>
+</section>
+
+<section class="sims" id="simulations">
+  <div class="wrap">
+    <h2>Et un laboratoire scientifique entier, en plus</h2>
+    <p class="sub">Plus de 100 simulations interactives à projeter en classe — 1 gratuite par matière</p>
+    <div class="disc-grid">
+      <div class="disc-chip disc-svt"><div class="n">🧬</div><div class="name">SVT</div><div class="count">35 simulations</div></div>
+      <div class="disc-chip disc-physique"><div class="n">⚡</div><div class="name">Physique</div><div class="count">32 simulations</div></div>
+      <div class="disc-chip disc-chimie"><div class="n">🧪</div><div class="name">Chimie</div><div class="count">24 simulations</div></div>
+      <div class="disc-chip disc-maths"><div class="n">📐</div><div class="name">Mathématiques</div><div class="count">14 simulations</div></div>
+      <div class="disc-chip disc-techno"><div class="n">⚙️</div><div class="name">Technologie</div><div class="count">12 simulations</div></div>
+    </div>
+    <ul class="sim-list">
+      <li>Animations interactives : cellule, ADN, circuits électriques, réactions chimiques, courbes mathématiques...</li>
+      <li>Quiz et exercices avec correction automatique et export PDF, pour chaque thème</li>
+      <li>Mode plein écran pensé pour le vidéoprojecteur, texte agrandi automatiquement</li>
+    </ul>
+  </div>
+</section>
+
+<section class="ai-callout">
+  <div class="wrap">
+    <div class="ai-box">
+      <div class="robot">🤖</div>
+      <h2>Un assistant IA intégré</h2>
+      <p>Directement dans l'appli, sans quitter la classe : il répond aux élèves, t'aide à préparer un cours, et génère de nouveaux exercices à volonté.</p>
+      <div class="ai-modes">
+        <span class="ai-mode-tag">🎓 Mode Élève</span>
+        <span class="ai-mode-tag">👩‍🏫 Mode Prof</span>
+        <span class="ai-mode-tag">📝 Mode Exercice</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="fonctionnalites">
+  <div class="wrap">
+    <h2>Ce que l'appli fait, concrètement</h2>
+    <div class="feat-grid">
+      <div class="feat-card">
+        <div class="feat-icon">🥁</div>
+        <div><h3>Jauge en direct</h3><p>Un cadran type peau de tam-tam, vert-jaune-rouge, visible depuis le fond de la salle.</p></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">⏱️</div>
+        <div><h3>Minuteur de silence</h3><p>Chronomètre le calme maintenu, garde le record de la classe pour créer un objectif à battre.</p></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">⭐</div>
+        <div><h3>Points par classe</h3><p>Chaque classe (5e A, 4e B...) a ses propres points et son propre record, sauvés automatiquement.</p></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🏆</div>
+        <div><h3>Défi Silence</h3><p>Un compte à rebours collectif de 1 à 15 minutes, avec célébration à la clé quand la classe tient bon.</p></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📱</div>
+        <div><h3>Zéro installation</h3><p>Fonctionne dans le navigateur, sur n'importe quel Android. Pas de Play Store, pas de compte à créer.</p></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📓</div>
+        <div><h3>Journal du professeur</h3><p>Notes de progression par matière, par leçon et par classe — jamais partagées, gardées sur le téléphone.</p></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🗓️</div>
+        <div><h3>Tableau de service</h3><p>Emploi du temps de tout l'établissement, jusqu'à 50+ enseignants, généré automatiquement sans conflit d'horaire.</p></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🕐</div>
+        <div><h3>Emploi du temps automatique</h3><p>L'appli bascule seule sur la bonne classe à la bonne heure, selon le planning de la semaine.</p></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">⏰</div>
+        <div><h3>Minuteur de cours</h3><p>Rappel vocal à 10 min, 5 min, puis à la fin de l'heure — sans avoir à surveiller le temps soi-même.</p></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📄</div>
+        <div><h3>Rapport hebdomadaire</h3><p>Un bilan de la semaine par classe, à partager sur WhatsApp ou à exporter en PDF.</p></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🖥️</div>
+        <div><h3>Mode Projecteur</h3><p>Affichage agrandi, pensé pour un vidéoprojecteur ou un grand écran devant la classe.</p></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🌐</div>
+        <div><h3>Français / English</h3><p>Toute l'appli, l'écran principal comme le menu, disponible dans les deux langues.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="tarifs">
+  <div class="wrap">
+    <h2>Tarifs</h2>
+    <p class="sub">Gratuit pour commencer, sans engagement ensuite</p>
+    <div class="plans">
+      <div class="plan">
+        <div class="plan-name">Découverte</div>
+        <div class="plan-price">Gratuit</div>
+        <ul>
+          <li>1 classe</li>
+          <li>Jauge de bruit en direct</li>
+          <li>Minuteur de silence + points</li>
+          <li>Défi Silence, Mode Cours, Mode Projecteur</li>
+          <li>1 simulation gratuite par matière, pour découvrir</li>
+        </ul>
+      </div>
+      <div class="plan">
+        <div class="plan-name">Premium — Mensuel</div>
+        <div class="plan-price">3 500 F <span class="per">par mois</span></div>
+        <ul>
+          <li>Classes illimitées</li>
+          <li>Les 117 simulations scientifiques, en accès complet</li>
+          <li>Assistant IA (élève, prof, génération d'exercices)</li>
+          <li>Récompenses, journal d'incidents, classement</li>
+          <li>Journal du professeur, tableau de service</li>
+          <li>Rapport hebdomadaire + export PDF</li>
+          <li>Emploi du temps automatique, sauvegarde, PIN</li>
+        </ul>
+      </div>
+      <div class="plan featured">
+        <div class="plan-name">Premium — Annuel</div>
+        <div class="plan-price">30 000 F <span class="per">par an</span></div>
+        <ul>
+          <li>Tout le plan Premium mensuel</li>
+          <li>Économie de 12 000 F sur l'année</li>
+          <li>Logo et nom d'établissement personnalisés</li>
+          <li>Surveillance à distance (tableau de bord central)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="final" id="contact">
+  <div class="drumskin" style="width:480px; height:480px; top:-20px; opacity:0.6;" aria-hidden="true">
+    <svg viewBox="0 0 640 640">
+      <circle class="ring-a" cx="320" cy="240" r="14"/>
+      <circle class="ring-c" cx="320" cy="240" r="14"/>
+    </svg>
+  </div>
+  <div class="wrap">
+    <h2>Prêt à essayer en classe ?</h2>
+    <p>Réponse rapide sur WhatsApp, installation guidée pas à pas.</p>
+    <a class="cta" href="https://wa.me/22898311080?text=Bonjour%2C%20je%20suis%20int%C3%A9ress%C3%A9(e)%20par%20Tam-Tam%20Silence%20pour%20ma%20classe" target="_blank">Discuter sur WhatsApp</a>
+    <a class="cta secondary" href="https://wa.me/22898311080?text=Bonjour%2C%20pourriez-vous%20faire%20une%20d%C3%A9monstration%20de%20Tam-Tam%20Silence%20dans%20ma%20classe%20%3F" target="_blank">Demander une démo dans ma classe</a>
+  </div>
+</section>
+
+<footer>
+  <div class="brand">AYH 🇹🇬</div>
+  <div>Outils numériques pour enseignants togolais</div>
+  <div>WhatsApp 98 31 10 80</div>
+</footer>
+
+<script>
+  const menuToggle = document.getElementById('menuToggle');
+  const menu = document.getElementById('menu');
+  menuToggle.addEventListener('click', ()=> menu.classList.toggle('open'));
+  menu.querySelectorAll('a').forEach(a=> a.addEventListener('click', ()=> menu.classList.remove('open')));
+</script>
+</body>
+</html>
